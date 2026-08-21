@@ -10,24 +10,24 @@ import { cn } from '@/lib/utils'
  */
 export function InfoTooltip({
   children,
+  label = 'More info',
   className,
 }: {
   children: ReactNode
+  label?: string
   className?: string
 }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'inline-flex size-4 shrink-0 items-center justify-center rounded-full text-text-faint transition-colors hover:text-concord focus-visible:text-concord',
-            className,
-          )}
-          aria-label="More info"
-        >
-          <CircleHelp className="size-full" aria-hidden="true" />
-        </button>
+      <TooltipTrigger
+        type="button"
+        className={cn(
+          'inline-flex size-4 shrink-0 items-center justify-center rounded-full text-text-faint transition-colors hover:text-concord focus-visible:text-concord',
+          className,
+        )}
+        aria-label={label}
+      >
+        <CircleHelp className="size-full" aria-hidden="true" />
       </TooltipTrigger>
       <TooltipContent className="max-w-64 border-panel-border bg-slate-950 font-mono text-[0.7rem] leading-relaxed text-text">
         {children}

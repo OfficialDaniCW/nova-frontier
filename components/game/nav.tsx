@@ -13,6 +13,7 @@ import {
   ScrollText,
   Trophy,
   Lock,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -34,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Trade', href: '/play/trade', icon: ArrowLeftRight },
   { label: 'Comms', href: '/play/comms', icon: ScrollText },
   { label: 'Leaderboard', href: '/play/leaderboard', icon: Trophy },
+  { label: 'Codex', href: '/play/codex', icon: BookOpen },
 ]
 
 export function GameNav() {

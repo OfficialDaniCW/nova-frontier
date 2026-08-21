@@ -165,7 +165,7 @@ const HowToTab = (
         <span className="text-alloy">Alloy</span>, and <span className="text-crystal">Crystal</span>{' '}
         continuously. Energy comes from the Fusion Reactor, Alloy from the Alloy Foundry, Crystal
         from the Crystal Extractor. The Storage Depot caps how much of each you can hold before
-        overflow is lost — upgrade it before you upgrade production, or you\u2019ll bleed resources
+        overflow is lost — upgrade it before you upgrade production, or you&apos;ll bleed resources
         you already earned.
       </p>
     </section>
@@ -212,18 +212,18 @@ const HowToTab = (
       </h3>
       <ul className="mt-2 flex flex-col gap-2 font-mono text-xs leading-relaxed text-text-dim">
         <li>
-          <span className="text-concord">Scout</span> — sends a Scout Probe to reveal a sector\u2019s
+          <span className="text-concord">Scout</span> — sends a Scout Probe to reveal a sector&apos;s
           exact garrison strength and resource cache before you commit a real fleet. Free of
           combat risk.
         </li>
         <li>
-          <span className="text-obsidian">Attack</span> — sends warships to fight the sector\u2019s
+          <span className="text-obsidian">Attack</span> — sends warships to fight the sector&apos;s
           garrison. Win and the garrison strength drops (or clears to zero); lose ships and take
           casualties either way. Striking Obsidian Vanguard territory risks a counter-raid on your
           own homeworld.
         </li>
         <li>
-          <span className="text-alloy">Salvage</span> — once a sector\u2019s garrison is cleared to
+          <span className="text-alloy">Salvage</span> — once a sector&apos;s garrison is cleared to
           zero, send a Hauler to collect its resource cache without founding a colony there.
         </li>
         <li>
@@ -250,7 +250,7 @@ const HowToTab = (
       </h3>
       <p className="mt-2 font-mono text-xs leading-relaxed text-text-dim">
         Every construction, research, combat, and trade event you trigger is logged in Comms —
-        it\u2019s the fastest way to see what actually happened while you were away. The Leaderboard
+        it&apos;s the fastest way to see what actually happened while you were away. The Leaderboard
         ranks governors by score: sectors claimed, combat wins, and research level all count.
       </p>
     </section>
