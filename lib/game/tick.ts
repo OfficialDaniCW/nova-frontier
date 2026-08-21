@@ -15,6 +15,7 @@ import {
   getBuildingDef,
   getResearchDef,
   getShipDef,
+  getResourcePriorityDef,
   FACTION_DEFENSE_MULTIPLIER,
 } from '@/lib/game/definitions'
 import { projectColonyResources } from '@/lib/game/resources'
@@ -68,16 +69,15 @@ async function resolveBuildingQueues(now: Date) {
     await recomputeColonyRates(b.colonyId)
 
     const def = getBuildingDef(b.buildingType)
-    await logComm(
-      b.userId,
-      'construction',
-      'success',
-      `${def.name} construction complete — now level ${b.queuedLevel}.`,
-    )
+    const message =
+      def.id === 'monument'
+        ? `${def.name} construction complete — now level ${b.queuedLevel}. +${(def.scorePerLevel ?? 0) * b.queuedLevel} score.`
+        : `${def.name} construction complete — now level ${b.queuedLevel}.`
+    await logComm(b.userId, 'construction', 'success', message)
   }
 }
 
-async function recomputeColonyRates(colonyId: string) {
+export async function recomputeColonyRates(colonyId: string) {
   const rows = await db.select().from(buildings).where(eq(buildings.colonyId, colonyId))
   let energyRate = 6
   let alloyRate = 4
@@ -102,6 +102,12 @@ async function recomputeColonyRates(colonyId: string) {
       crystalCap += add * 0.5
     }
   }
+
+  const [colony] = await db.select().from(colonies).where(eq(colonies.id, colonyId)).limit(1)
+  const priority = getResourcePriorityDef(colony?.resourcePriority ?? 'balanced')
+  energyRate *= priority.multipliers.energy
+  alloyRate *= priority.multipliers.alloy
+  crystalRate *= priority.multipliers.crystal
 
   await settleColony(colonyId)
   await db

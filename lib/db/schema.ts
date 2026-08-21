@@ -82,6 +82,7 @@ export const colonies = pgTable('colonies', {
   governorId: text('governorId').notNull(),
   name: text('name').notNull(),
   planetType: text('planetType').notNull().default('temperate'),
+  resourcePriority: text('resourcePriority').notNull().default('balanced'),
   energy: doublePrecision('energy').notNull().default(500),
   alloy: doublePrecision('alloy').notNull().default(300),
   crystal: doublePrecision('crystal').notNull().default(100),

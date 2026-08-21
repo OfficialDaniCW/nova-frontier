@@ -1,7 +1,7 @@
 import { getLeaderboard } from '@/app/actions/comms'
 import { getUserId } from '@/lib/game/session'
 import { Panel } from '@/components/game/panel'
-import { Trophy, Swords, FlaskConical, Flag } from 'lucide-react'
+import { Trophy, Swords, FlaskConical, Flag, Landmark } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const RANK_STYLES = [
@@ -58,6 +58,11 @@ export default async function LeaderboardPage() {
                     <span className="flex items-center gap-1">
                       <FlaskConical className="size-3" /> {row.researchLevels} research
                     </span>
+                    {row.monumentLevel > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Landmark className="size-3" /> Monument L{row.monumentLevel}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span className="font-mono text-lg font-medium tabular-nums text-foreground">

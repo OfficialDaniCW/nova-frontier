@@ -77,6 +77,7 @@ export function ColonyBuildingsGrid({ buildingRows, resources }: ColonyBuildings
               ? { resource: def.productionPerLevel.resource, amount: def.productionPerLevel.amount * level }
               : undefined,
             storageCapacity: def.storagePerLevel ? def.storagePerLevel * level : undefined,
+            scoreValue: def.scorePerLevel ? def.scorePerLevel * level : undefined,
           }
 
           return (

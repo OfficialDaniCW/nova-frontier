@@ -16,6 +16,7 @@ import {
   Telescope,
   Swords,
   Shield,
+  Landmark,
 } from 'lucide-react'
 
 export type Resource = 'energy' | 'alloy' | 'crystal'
@@ -36,6 +37,8 @@ export interface BuildingDef {
   /** Production rate per second at level 1, if applicable, scaling linearly with level. */
   productionPerLevel?: { resource: Resource; amount: number }
   storagePerLevel?: number
+  /** Governor score awarded per level. Vanity buildings use this instead of production. */
+  scorePerLevel?: number
 }
 
 export const BUILDING_DEFS: BuildingDef[] = [
@@ -152,6 +155,19 @@ export const BUILDING_DEFS: BuildingDef[] = [
     costGrowth: 1.45,
     baseBuildTimeSec: 300,
     buildTimeGrowth: 1.25,
+  },
+  {
+    id: 'monument',
+    name: 'Monument',
+    description:
+      'A pure vanity spire with no production, no unlocks, no defense value — it exists purely to be seen. Governors build it anyway.',
+    icon: Landmark,
+    maxLevel: 15,
+    baseCost: { energy: 1800, alloy: 1800, crystal: 900 },
+    costGrowth: 1.7,
+    baseBuildTimeSec: 600,
+    buildTimeGrowth: 1.4,
+    scorePerLevel: 250,
   },
 ]
 
@@ -413,3 +429,49 @@ export const FACTION_DEFENSE_MULTIPLIER: Record<string, number> = {
 }
 
 export const SECTOR_DISTANCE_SPEED_SEC_PER_UNIT = 45
+
+// --- Resource Priority ------------------------------------------------------
+
+export type ResourcePriority = 'balanced' | 'energy' | 'alloy' | 'crystal'
+
+export interface ResourcePriorityDef {
+  id: ResourcePriority
+  name: string
+  description: string
+  multipliers: Record<Resource, number>
+}
+
+/**
+ * A zero-sum dial: favoring one resource speeds its production but taxes the
+ * other two. 'balanced' is the neutral default every colony starts on.
+ */
+export const RESOURCE_PRIORITY_DEFS: ResourcePriorityDef[] = [
+  {
+    id: 'balanced',
+    name: 'Balanced',
+    description: 'Even output across all three resource lines. No bonus, no penalty.',
+    multipliers: { energy: 1, alloy: 1, crystal: 1 },
+  },
+  {
+    id: 'energy',
+    name: 'Energy Focus',
+    description: '+20% Energy production, -10% Alloy and Crystal.',
+    multipliers: { energy: 1.2, alloy: 0.9, crystal: 0.9 },
+  },
+  {
+    id: 'alloy',
+    name: 'Alloy Focus',
+    description: '+20% Alloy production, -10% Energy and Crystal.',
+    multipliers: { energy: 0.9, alloy: 1.2, crystal: 0.9 },
+  },
+  {
+    id: 'crystal',
+    name: 'Crystal Focus',
+    description: '+20% Crystal production, -10% Energy and Alloy.',
+    multipliers: { energy: 0.9, alloy: 0.9, crystal: 1.2 },
+  },
+]
+
+export function getResourcePriorityDef(id: string): ResourcePriorityDef {
+  return RESOURCE_PRIORITY_DEFS.find((p) => p.id === id) ?? RESOURCE_PRIORITY_DEFS[0]
+}

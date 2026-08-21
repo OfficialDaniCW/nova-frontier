@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Warehouse,
   Zap,
+  Landmark,
 } from 'lucide-react'
 import { Panel } from '@/components/game/panel'
 import { ChevronButton } from '@/components/game/chevron-button'
@@ -24,6 +25,7 @@ export interface BuildingCardDef {
   level: number
   productionRate?: { resource: 'energy' | 'alloy' | 'crystal'; amount: number }
   storageCapacity?: number
+  scoreValue?: number
   cost: { energy?: number; alloy?: number; crystal?: number }
   buildTimeSec: number
   maxLevel: number
@@ -40,6 +42,7 @@ const BUILDING_ICONS: Record<string, LucideIcon> = {
   shipyard: Rocket,
   'shield-generator': ShieldCheck,
   'sensor-array': Satellite,
+  monument: Landmark,
 }
 
 interface BuildingCardProps {
@@ -96,6 +99,16 @@ export function BuildingCard({ building, queueActive, affordable, onUpgrade }: B
           </span>
           <span className="font-mono text-xs tabular-nums text-alloy">
             {new Intl.NumberFormat('en-US').format(building.storageCapacity)}
+          </span>
+        </div>
+      )}
+      {building.scoreValue != null && (
+        <div className="flex items-center justify-between border-y border-panel-border/60 py-2">
+          <span className="font-display text-[0.65rem] uppercase tracking-wide text-text-faint">
+            Score
+          </span>
+          <span className="font-mono text-xs tabular-nums text-primary">
+            +{building.scoreValue} pts
           </span>
         </div>
       )}

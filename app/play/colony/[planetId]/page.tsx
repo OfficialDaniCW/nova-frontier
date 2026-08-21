@@ -3,6 +3,8 @@ import { getColonyState } from '@/app/actions/colony'
 import { getTutorialState } from '@/app/actions/tutorial'
 import { ColonyBuildingsGrid } from '@/components/game/colony-buildings-grid'
 import { TutorialChecklist } from '@/components/game/tutorial-checklist'
+import { ResourcePriorityDial } from '@/components/game/resource-priority-dial'
+import type { ResourcePriority } from '@/lib/game/definitions'
 
 export default async function ColonyPage({
   params,
@@ -38,6 +40,8 @@ export default async function ColonyPage({
       </div>
 
       {!dismissed && progress && <TutorialChecklist progress={progress} />}
+
+      <ResourcePriorityDial current={(colony.resourcePriority as ResourcePriority) ?? 'balanced'} />
 
       <ColonyBuildingsGrid buildingRows={serializedRows} resources={projected} />
     </div>
