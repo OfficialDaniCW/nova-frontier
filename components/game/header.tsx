@@ -8,7 +8,7 @@ import { colonies, governors } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { projectColonyResources } from '@/lib/game/resources'
 import { getCreed } from '@/lib/game/creed'
-import { FACTION_META, type FactionId } from '@/lib/faction-meta'
+import { FACTION_META, type Faction } from '@/lib/faction-meta'
 import { SignOutButton } from '@/components/game/sign-out-button'
 import { SystemTelemetry } from '@/components/game/system-telemetry'
 
@@ -27,7 +27,7 @@ export async function GameHeader() {
 
   const creed = getCreed(governor?.creedId)
   const allegiance = governor?.allegiance
-    ? FACTION_META[governor.allegiance as FactionId]
+    ? FACTION_META[governor.allegiance as Faction]
     : null
 
   return (
@@ -80,7 +80,7 @@ export async function GameHeader() {
                 <span className="flex items-center gap-1.5">
                   <Flame className="size-3 text-devotion" strokeWidth={1.5} aria-hidden="true" />
                   <span className="font-display text-[0.65rem] uppercase tracking-wide text-text">
-                    {creed.shortName}
+                    {creed.name}
                   </span>
                 </span>
               )}
@@ -89,10 +89,9 @@ export async function GameHeader() {
               )}
               {allegiance && (
                 <span
-                  className="font-display text-[0.65rem] uppercase tracking-wide"
-                  style={{ color: allegiance.color }}
+                  className={`font-display text-[0.65rem] uppercase tracking-wide ${allegiance.textClass}`}
                 >
-                  {allegiance.shortName ?? allegiance.name}
+                  {allegiance.label}
                 </span>
               )}
             </Link>
