@@ -276,6 +276,48 @@
   .bloom-pulse {
     animation: bloom-pulse 5s ease-in-out infinite;
   }
+
+  /* Corner bracket framing: four real elements via .corner-tl/tr/bl/br
+     children of a .bracketed parent, so each corner stays addressable
+     (used by spec-sheet style unit/product showcases). */
+  .bracketed {
+    position: relative;
+  }
+
+  .corner {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+  }
+
+  .corner-tl {
+    top: 10px;
+    left: 10px;
+    border-top: 2px solid var(--concord);
+    border-left: 2px solid var(--concord);
+  }
+
+  .corner-tr {
+    top: 10px;
+    right: 10px;
+    border-top: 2px solid var(--concord);
+    border-right: 2px solid var(--concord);
+  }
+
+  .corner-bl {
+    bottom: 10px;
+    left: 10px;
+    border-bottom: 2px solid var(--concord);
+    border-left: 2px solid var(--concord);
+  }
+
+  .corner-br {
+    bottom: 10px;
+    right: 10px;
+    border-bottom: 2px solid var(--concord);
+    border-right: 2px solid var(--concord);
+  }
 }
 
 @keyframes scanline-move {
