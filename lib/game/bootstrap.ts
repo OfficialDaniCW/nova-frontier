@@ -2,12 +2,16 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { governors, colonies, buildings, ships } from '@/lib/db/schema'
 import { BUILDING_DEFS } from '@/lib/game/definitions'
+import { planetModifiers, type PlanetType } from '@/lib/game/planets'
+
+export type { PlanetType } from '@/lib/game/planets'
+export { PLANET_TYPES } from '@/lib/game/planets'
 
 function newId(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`
 }
 
-const STARTER_BUILDING_LEVELS: Record<string, number> = {
+export const STARTER_BUILDING_LEVELS: Record<string, number> = {
   'command-spire': 1,
   'fusion-reactor': 1,
   'alloy-foundry': 1,
@@ -20,7 +24,7 @@ const STARTER_BUILDING_LEVELS: Record<string, number> = {
   'sensor-array': 1,
 }
 
-const STARTER_SHIP_COUNTS: Record<string, number> = {
+export const STARTER_SHIP_COUNTS: Record<string, number> = {
   'scout-probe': 2,
   interceptor: 3,
 }
@@ -34,11 +38,20 @@ function randomCallsign() {
   return `${a} ${n}`
 }
 
+export type FoundingOptions = {
+  callsign?: string
+  colonyName?: string
+  planetType?: PlanetType
+}
+
 /**
- * Idempotent: ensures the given user has a governor, a home colony, starter
- * buildings, and a starter fleet. Safe to call on every /play load.
+ * Creates the governor, home colony, starter buildings, and starter fleet
+ * for a brand-new user, honoring the founding choices made at sign-up
+ * (colony name, callsign, planet type). If the user already has a
+ * governor, returns the existing rows untouched — this makes it safe to
+ * call once at sign-up time and again idempotently from every /play load.
  */
-export async function ensurePlayerBootstrapped(userId: string) {
+export async function foundColony(userId: string, options: FoundingOptions = {}) {
   const [existingGovernor] = await db
     .select()
     .from(governors)
@@ -57,8 +70,11 @@ export async function ensurePlayerBootstrapped(userId: string) {
   const governorId = newId('gov')
   const [governor] = await db
     .insert(governors)
-    .values({ id: governorId, userId, callsign: randomCallsign() })
+    .values({ id: governorId, userId, callsign: options.callsign?.trim() || randomCallsign() })
     .returning()
+
+  const planetType: PlanetType = options.planetType ?? 'temperate'
+  const modifiers = planetModifiers(planetType)
 
   const colonyId = newId('col')
   const [colony] = await db
@@ -67,8 +83,11 @@ export async function ensurePlayerBootstrapped(userId: string) {
       id: colonyId,
       userId,
       governorId,
-      name: 'Kepler-11c',
-      planetType: 'temperate',
+      name: options.colonyName?.trim() || 'Kepler-11c',
+      planetType,
+      energyRate: 12 * (modifiers.energyRate ?? 1),
+      alloyRate: 8 * (modifiers.alloyRate ?? 1),
+      crystalRate: 2 * (modifiers.crystalRate ?? 1),
     })
     .returning()
 
@@ -93,4 +112,12 @@ export async function ensurePlayerBootstrapped(userId: string) {
   }
 
   return { governor, colony }
+}
+
+/**
+ * Idempotent: ensures the given user has a governor, a home colony, starter
+ * buildings, and a starter fleet. Safe to call on every /play load.
+ */
+export async function ensurePlayerBootstrapped(userId: string) {
+  return foundColony(userId)
 }

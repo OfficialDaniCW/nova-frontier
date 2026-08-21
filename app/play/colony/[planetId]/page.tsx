@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getColonyState } from '@/app/actions/colony'
+import { getTutorialState } from '@/app/actions/tutorial'
 import { ColonyBuildingsGrid } from '@/components/game/colony-buildings-grid'
+import { TutorialChecklist } from '@/components/game/tutorial-checklist'
 
 export default async function ColonyPage({
   params,
@@ -9,6 +11,7 @@ export default async function ColonyPage({
 }) {
   const { planetId } = await params
   const { colony, projected, buildingRows } = await getColonyState()
+  const { dismissed, progress } = await getTutorialState()
 
   if (colony.id !== planetId) redirect(`/play/colony/${colony.id}`)
 
@@ -33,6 +36,8 @@ export default async function ColonyPage({
           </h1>
         </div>
       </div>
+
+      {!dismissed && progress && <TutorialChecklist progress={progress} />}
 
       <ColonyBuildingsGrid buildingRows={serializedRows} resources={projected} />
     </div>

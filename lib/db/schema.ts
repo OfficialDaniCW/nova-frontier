@@ -72,6 +72,7 @@ export const governors = pgTable('governors', {
   userId: text('userId').notNull(),
   callsign: text('callsign').notNull(),
   score: integer('score').notNull().default(0),
+  tutorialDismissedAt: timestamp('tutorialDismissedAt'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
