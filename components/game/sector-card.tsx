@@ -13,6 +13,7 @@ export interface SectorView {
   positionY: number
   ownerUserId: string | null
   isMine: boolean
+  isCompactMate?: boolean
 }
 
 interface SectorCardProps {
@@ -47,10 +48,21 @@ export function SectorCard({ sector, selected, onSelect }: SectorCardProps) {
           </span>
         </span>
         {sector.ownerUserId ? (
-          <Flag
-            className={cn('size-4 shrink-0', sector.isMine ? 'text-concord' : 'text-text-faint')}
-            aria-hidden="true"
-          />
+          <span
+            title={sector.isMine ? 'Your territory' : sector.isCompactMate ? 'Compact territory' : undefined}
+          >
+            <Flag
+              className={cn(
+                'size-4 shrink-0',
+                sector.isMine
+                  ? 'text-concord'
+                  : sector.isCompactMate
+                    ? 'text-primary'
+                    : 'text-text-faint',
+              )}
+              aria-hidden="true"
+            />
+          </span>
         ) : (
           cleared && <CheckCircle2 className="size-4 shrink-0 text-concord" aria-hidden="true" />
         )}

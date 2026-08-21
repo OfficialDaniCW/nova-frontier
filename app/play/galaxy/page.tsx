@@ -5,7 +5,7 @@ import type { Faction } from '@/lib/faction-meta'
 
 export default async function GalaxyPage() {
   const userId = await getUserId()
-  const { sectors, shipRows, activeFleets } = await getGalaxyState()
+  const { sectors, shipRows, activeFleets, compactMateUserIds } = await getGalaxyState()
 
   const sectorViews = sectors.map((s) => ({
     id: s.id,
@@ -16,6 +16,7 @@ export default async function GalaxyPage() {
     positionY: s.positionY,
     ownerUserId: s.ownerUserId,
     isMine: s.ownerUserId === userId,
+    isCompactMate: !!s.ownerUserId && s.ownerUserId !== userId && compactMateUserIds.includes(s.ownerUserId),
   }))
 
   const resourceCaches = Object.fromEntries(

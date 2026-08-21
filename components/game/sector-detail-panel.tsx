@@ -86,8 +86,18 @@ export function SectorDetailPanel({
 
       {sector.ownerUserId && (
         <p className="flex items-center gap-1.5 font-mono text-xs text-text-dim">
-          <Flag className={cn('size-3.5', sector.isMine ? 'text-concord' : 'text-text-faint')} aria-hidden="true" />
-          {sector.isMine ? 'Claimed by your compact.' : 'Claimed by a rival governor.'}
+          <Flag
+            className={cn(
+              'size-3.5',
+              sector.isMine ? 'text-concord' : sector.isCompactMate ? 'text-primary' : 'text-text-faint',
+            )}
+            aria-hidden="true"
+          />
+          {sector.isMine
+            ? 'Claimed by you.'
+            : sector.isCompactMate
+              ? 'Claimed by your Compact.'
+              : 'Claimed by a rival governor.'}
         </p>
       )}
 
@@ -114,7 +124,7 @@ export function SectorDetailPanel({
           engaging its defenders. Low risk, no combat.
         </InfoTooltip>
 
-        {!cleared && !sector.isMine && (
+        {!cleared && !sector.isMine && !sector.isCompactMate && (
           <>
             <AttackFleetDialog
               sectorName={sector.name}
@@ -148,7 +158,7 @@ export function SectorDetailPanel({
           </>
         )}
 
-        {cleared && !sector.isMine && (
+        {cleared && !sector.isMine && !sector.isCompactMate && (
           <>
             <ChevronButton
               variant="alloy"

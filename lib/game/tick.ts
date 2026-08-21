@@ -24,7 +24,7 @@ function newId(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`
 }
 
-async function logComm(
+export async function logComm(
   userId: string,
   category: string,
   severity: string,

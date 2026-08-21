@@ -6,7 +6,7 @@ import { commLog, governors, research, combatLogs, sectors, buildings } from '@/
 import { getUserId } from '@/lib/game/session'
 import { ensurePlayerBootstrapped } from '@/lib/game/bootstrap'
 import { runTick } from '@/lib/game/tick'
-import { getBuildingDef } from '@/lib/game/definitions'
+import { scoreForUser } from '@/app/actions/compact'
 
 export async function getCommLog() {
   const userId = await getUserId()
@@ -48,9 +48,8 @@ export async function getLeaderboard() {
         .from(buildings)
         .where(and(eq(buildings.userId, gov.userId), eq(buildings.buildingType, 'monument')))
         .limit(1)
-      const monumentScore = monument ? (getBuildingDef('monument').scorePerLevel ?? 0) * monument.level : 0
 
-      const score = sectorsClaimed * 100 + winsCount * 25 + researchLevels * 10 + monumentScore
+      const score = await scoreForUser(gov.userId, gov.id)
       return {
         governor: gov,
         sectorsClaimed,

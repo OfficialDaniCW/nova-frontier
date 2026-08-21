@@ -31,7 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Research', href: '/play/research', icon: FlaskConical },
   { label: 'Star Chart', href: '/play/galaxy', icon: Globe2 },
   { label: 'Fleet', href: '/play/fleet', icon: Rocket },
-  { label: 'Compact', href: '/play/compact', icon: Users, disabled: true },
+  { label: 'Compact', href: '/play/compact', icon: Users },
   { label: 'Trade', href: '/play/trade', icon: ArrowLeftRight },
   { label: 'Comms', href: '/play/comms', icon: ScrollText },
   { label: 'Leaderboard', href: '/play/leaderboard', icon: Trophy },

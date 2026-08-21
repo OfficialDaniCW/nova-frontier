@@ -8,6 +8,7 @@ import { ensurePlayerBootstrapped } from '@/lib/game/bootstrap'
 import { ensureGalaxySeeded } from '@/lib/game/galaxy-seed'
 import { runTick } from '@/lib/game/tick'
 import { SECTOR_DISTANCE_SPEED_SEC_PER_UNIT } from '@/lib/game/definitions'
+import { getCompactMateUserIds } from '@/app/actions/compact'
 import { revalidatePath } from 'next/cache'
 
 export async function getGalaxyState() {
@@ -29,8 +30,9 @@ export async function getGalaxyState() {
     .from(combatLogs)
     .where(eq(combatLogs.userId, userId))
     .limit(20)
+  const compactMateUserIds = await getCompactMateUserIds(userId)
 
-  return { sectors: sectorRows, shipRows, activeFleets, recentCombat, colony }
+  return { sectors: sectorRows, shipRows, activeFleets, recentCombat, colony, compactMateUserIds }
 }
 
 function distanceBetween(x1: number, y1: number, x2: number, y2: number) {
@@ -104,6 +106,14 @@ export async function attackSector(sectorId: string, shipCounts: Record<string, 
   const totalShips = Object.values(shipCounts).reduce((a, b) => a + b, 0)
   if (totalShips < 1) throw new Error('Select at least one ship')
 
+  const [sector] = await db.select().from(sectors).where(eq(sectors.id, sectorId)).limit(1)
+  if (sector?.ownerUserId) {
+    const compactMates = await getCompactMateUserIds(userId)
+    if (compactMates.includes(sector.ownerUserId)) {
+      throw new Error('Cannot attack a fellow Compact member\'s territory')
+    }
+  }
+
   return launchFleet(userId, colony.id, sectorId, 'attack', shipCounts)
 }
 
@@ -116,6 +126,12 @@ export async function salvageSector(sectorId: string) {
   const [sector] = await db.select().from(sectors).where(eq(sectors.id, sectorId)).limit(1)
   if (!sector) throw new Error('Sector not found')
   if (sector.garrisonStrength > 0) throw new Error('Sector garrison must be cleared first')
+  if (sector.ownerUserId) {
+    const compactMates = await getCompactMateUserIds(userId)
+    if (compactMates.includes(sector.ownerUserId)) {
+      throw new Error('Cannot salvage a fellow Compact member\'s territory')
+    }
+  }
 
   const [haulerRow] = await db
     .select()

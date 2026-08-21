@@ -190,6 +190,21 @@ export const marketOrders = pgTable('market_orders', {
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
+export const compacts = pgTable('compacts', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  tag: text('tag').notNull(),
+  leaderUserId: text('leaderUserId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+})
+
+export const compactMembers = pgTable('compact_members', {
+  id: text('id').primaryKey(),
+  compactId: text('compactId').notNull(),
+  userId: text('userId').notNull(),
+  joinedAt: timestamp('joinedAt').notNull().defaultNow(),
+})
+
 export const commLog = pgTable('comm_log', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
