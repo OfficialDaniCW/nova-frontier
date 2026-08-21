@@ -53,14 +53,17 @@ export async function detectSystemsInRange(
   const toDetect = all.filter((s) => !known.has(s.id) && galaxyDistance(origin, s) <= range)
   if (toDetect.length === 0) return 0
 
-  await db.insert(systemDiscoveries).values(
-    toDetect.map((s) => ({
-      id: newId('disc'),
-      userId,
-      systemId: s.id,
-      level: 'detected' as DiscoveryLevel,
-    })),
-  )
+  await db
+    .insert(systemDiscoveries)
+    .values(
+      toDetect.map((s) => ({
+        id: newId('disc'),
+        userId,
+        systemId: s.id,
+        level: 'detected' as DiscoveryLevel,
+      })),
+    )
+    .onConflictDoNothing({ target: [systemDiscoveries.userId, systemDiscoveries.systemId] })
   return toDetect.length
 }
 
@@ -104,19 +107,27 @@ export async function ensurePlayerDiscoveryBootstrapped(userId: string) {
     await db.update(colonies).set({ homeSystemId }).where(eq(colonies.id, colony.id))
   }
 
-  // Ensure the home system is surveyed.
+  // Ensure the home system is surveyed. Insert-or-upgrade, conflict-safe against
+  // the unique (userId, systemId) constraint since the passive sweep below may
+  // also touch it.
   const [homeDisc] = await db
     .select()
     .from(systemDiscoveries)
     .where(and(eq(systemDiscoveries.userId, userId), eq(systemDiscoveries.systemId, homeSystemId)))
     .limit(1)
   if (!homeDisc) {
-    await db.insert(systemDiscoveries).values({
-      id: newId('disc'),
-      userId,
-      systemId: homeSystemId,
-      level: 'surveyed',
-    })
+    await db
+      .insert(systemDiscoveries)
+      .values({
+        id: newId('disc'),
+        userId,
+        systemId: homeSystemId,
+        level: 'surveyed',
+      })
+      .onConflictDoUpdate({
+        target: [systemDiscoveries.userId, systemDiscoveries.systemId],
+        set: { level: 'surveyed' },
+      })
   } else if (homeDisc.level !== 'surveyed') {
     await db
       .update(systemDiscoveries)
@@ -124,7 +135,7 @@ export async function ensurePlayerDiscoveryBootstrapped(userId: string) {
       .where(eq(systemDiscoveries.id, homeDisc.id))
   }
 
-  // Passive detection around the home system.
+  // Passive detection around the home system (skips the already-surveyed home).
   const [home] = await db.select().from(starSystems).where(eq(starSystems.id, homeSystemId)).limit(1)
   if (home) {
     const range = await getSensorRange(userId)

@@ -11,6 +11,7 @@ import {
   marketOrders,
   commLog,
   bloomState,
+  systemDiscoveries,
 } from '@/lib/db/schema'
 import {
   getBuildingDef,
@@ -20,6 +21,7 @@ import {
   FACTION_DEFENSE_MULTIPLIER,
 } from '@/lib/game/definitions'
 import { projectColonyResources } from '@/lib/game/resources'
+import { getTraitDef, rollSurveyReward, planetTraitBonus } from '@/lib/game/galaxy'
 
 const BLOOM_SPREAD_INTERVAL_MS = 3 * 60 * 1000
 const BLOOM_SPREAD_THRESHOLD = 55
@@ -114,6 +116,18 @@ export async function recomputeColonyRates(colonyId: string) {
   energyRate *= priority.multipliers.energy
   alloyRate *= priority.multipliers.alloy
   crystalRate *= priority.multipliers.crystal
+
+  // Colonized planets contribute passive rate bonuses from their traits.
+  if (colony) {
+    const ownedPlanets = await db
+      .select({ traits: sectors.traits })
+      .from(sectors)
+      .where(eq(sectors.ownerColonyId, colonyId))
+    const bonus = planetTraitBonus(ownedPlanets)
+    energyRate *= bonus.energyRate
+    alloyRate *= bonus.alloyRate
+    crystalRate *= bonus.crystalRate
+  }
 
   await settleColony(colonyId)
   await db
@@ -210,6 +224,12 @@ async function resolveFleetArrivals(now: Date) {
       await db
         .update(fleets)
         .set({ resolved: true, status: 'returned' })
+        .where(eq(fleets.id, fleet.id))
+    } else if (fleet.mission === 'survey') {
+      await resolveSurvey(fleet, sector, now)
+      await db
+        .update(fleets)
+        .set({ resolved: true, status: 'surveyed' })
         .where(eq(fleets.id, fleet.id))
     } else if (fleet.mission === 'attack') {
       const attackerPower = fleetTotalPower(shipCounts, 'attack')
@@ -494,11 +514,21 @@ async function resolveFleetArrivals(now: Date) {
           .update(sectors)
           .set({ ownerUserId: fleet.userId, ownerColonyId: fleet.colonyId })
           .where(eq(sectors.id, sector.id))
+        // New planet trait bonuses take effect immediately.
+        await recomputeColonyRates(fleet.colonyId)
+        const traitIds = Array.isArray(sector.traits) ? (sector.traits as string[]) : []
+        const traitNames = traitIds
+          .map((t) => getTraitDef(t)?.name)
+          .filter((n): n is string => Boolean(n))
+        const traitSuffix =
+          traitNames.length > 0
+            ? ` Survey teams confirm ${traitNames.join(', ')} — production uplift applied.`
+            : ''
         await logComm(
           fleet.userId,
           'system',
           'success',
-          `${sector.name} has been claimed for the Concord Compact.`,
+          `${sector.name} has been claimed for your holdings.${traitSuffix}`,
         )
       } else {
         await logComm(
@@ -518,6 +548,66 @@ async function resolveFleetArrivals(now: Date) {
         .set({ resolved: true, status: 'returned' })
         .where(eq(fleets.id, fleet.id))
     }
+  }
+}
+
+/**
+ * A survey fleet reaching a system upgrades the player's discovery of it to
+ * 'surveyed' (revealing all planets) and, for anomaly/derelict/ruin sites,
+ * awards a one-off resource cache scaled by the player's Xeno-Archaeology.
+ */
+async function resolveSurvey(
+  fleet: typeof fleets.$inferSelect,
+  anchorSector: typeof sectors.$inferSelect,
+  now: Date,
+) {
+  const systemId = anchorSector.systemId
+  if (!systemId) return
+
+  await db
+    .update(systemDiscoveries)
+    .set({ level: 'surveyed', discoveredAt: now })
+    .where(
+      and(eq(systemDiscoveries.userId, fleet.userId), eq(systemDiscoveries.systemId, systemId)),
+    )
+
+  const systemPlanets = await db.select().from(sectors).where(eq(sectors.systemId, systemId))
+  const siteType = systemPlanets.find((p) => p.sectorType && p.sectorType !== 'outpost')?.sectorType
+
+  // Xeno-Archaeology boosts anomaly/derelict payouts.
+  const [xeno] = await db
+    .select()
+    .from(research)
+    .where(and(eq(research.userId, fleet.userId), eq(research.techId, 'xeno-archaeology')))
+    .limit(1)
+  const rewardMult = 1 + (xeno?.level ?? 0) * 0.25
+
+  const reward = rollSurveyReward(siteType, rewardMult)
+  if (reward && (reward.energy || reward.alloy || reward.crystal)) {
+    const settled = await settleColony(fleet.colonyId)
+    if (settled) {
+      await db
+        .update(colonies)
+        .set({
+          energy: Math.min(settled.energyCap, settled.energy + (reward.energy ?? 0)),
+          alloy: Math.min(settled.alloyCap, settled.alloy + (reward.alloy ?? 0)),
+          crystal: Math.min(settled.crystalCap, settled.crystal + (reward.crystal ?? 0)),
+        })
+        .where(eq(colonies.id, fleet.colonyId))
+    }
+    await logComm(
+      fleet.userId,
+      'fleet',
+      'success',
+      `Survey of ${anchorSector.name.split(' ')[0]} complete — ${systemPlanets.length} planet(s) charted and a cache recovered (${reward.energy ?? 0}E / ${reward.alloy ?? 0}A / ${reward.crystal ?? 0}C).`,
+    )
+  } else {
+    await logComm(
+      fleet.userId,
+      'fleet',
+      'success',
+      `Survey complete — ${systemPlanets.length} planet(s) charted and added to your star map.`,
+    )
   }
 }
 

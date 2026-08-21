@@ -1,25 +1,16 @@
 import { getGalaxyState } from '@/app/actions/fleet'
+import { getGalaxyMap } from '@/app/actions/exploration'
 import { getUserId } from '@/lib/game/session'
-import { GalaxyView } from '@/components/game/galaxy-view'
-import type { Faction } from '@/lib/faction-meta'
+import { StarChart } from '@/components/game/star-chart'
 
 export default async function GalaxyPage() {
   const userId = await getUserId()
-  const { sectors, shipRows, activeFleets, compactMateUserIds } = await getGalaxyState()
+  const [{ sectors, shipRows, activeFleets, compactMateUserIds }, map] = await Promise.all([
+    getGalaxyState(),
+    getGalaxyMap(),
+  ])
 
-  const sectorViews = sectors.map((s) => ({
-    id: s.id,
-    name: s.name,
-    faction: s.faction as Faction,
-    garrisonStrength: s.garrisonStrength,
-    bloomIntensity: s.bloomIntensity,
-    positionX: s.positionX,
-    positionY: s.positionY,
-    ownerUserId: s.ownerUserId,
-    isMine: s.ownerUserId === userId,
-    isCompactMate: !!s.ownerUserId && s.ownerUserId !== userId && compactMateUserIds.includes(s.ownerUserId),
-  }))
-
+  // Resource caches keyed by planet (sector) id, used by planet action panels.
   const resourceCaches = Object.fromEntries(
     sectors.map((s) => [
       s.id,
@@ -30,7 +21,7 @@ export default async function GalaxyPage() {
   const fleetViews = activeFleets.map((f) => ({
     id: f.id,
     sectorId: f.sectorId,
-    sectorName: sectors.find((s) => s.id === f.sectorId)?.name ?? 'Unknown sector',
+    sectorName: sectors.find((s) => s.id === f.sectorId)?.name ?? 'Deep space',
     mission: f.mission,
     arrivesAt: f.arrivesAt.toISOString(),
     shipCounts: f.shipCounts as Record<string, number>,
@@ -40,16 +31,21 @@ export default async function GalaxyPage() {
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div>
         <p className="font-mono text-[0.65rem] uppercase tracking-wide text-text-faint">
-          Halcyon Verge · Sector Survey
+          Galactic Cartography · Fog-of-War Survey
         </p>
         <h1 className="font-display text-2xl font-semibold tracking-wide text-text">Star Chart</h1>
       </div>
 
-      <GalaxyView
-        sectors={sectorViews}
+      <StarChart
+        systems={map.systems}
+        quadrantTotals={map.quadrantTotals}
+        homeSystemId={map.homeSystemId}
+        sensorRange={map.sensorRange}
         resourceCaches={resourceCaches}
         shipRows={shipRows}
         fleets={fleetViews}
+        currentUserId={userId}
+        compactMateUserIds={compactMateUserIds}
       />
     </div>
   )

@@ -141,6 +141,32 @@ export function getPlanetTrait(id: string): PlanetTraitDef | undefined {
   return PLANET_TRAITS.find((t) => t.id === id)
 }
 
+// Alias used by the tick resolver.
+export function getTraitDef(id: string): PlanetTraitDef | undefined {
+  return getPlanetTrait(id)
+}
+
+/**
+ * Combined multiplicative rate bonus a set of owned planets grants the owner's
+ * home colony. Returns 1-based multipliers per resource rate.
+ */
+export function planetTraitBonus(
+  planets: { traits: unknown }[],
+): { energyRate: number; alloyRate: number; crystalRate: number } {
+  const bonus = { energyRate: 1, alloyRate: 1, crystalRate: 1 }
+  for (const planet of planets) {
+    const traitIds = Array.isArray(planet.traits) ? (planet.traits as string[]) : []
+    for (const id of traitIds) {
+      const def = getPlanetTrait(id)
+      if (!def) continue
+      if (def.modifier.energyRate) bonus.energyRate *= def.modifier.energyRate
+      if (def.modifier.alloyRate) bonus.alloyRate *= def.modifier.alloyRate
+      if (def.modifier.crystalRate) bonus.crystalRate *= def.modifier.crystalRate
+    }
+  }
+  return bonus
+}
+
 export interface SiteTypeDef {
   id: SiteType
   name: string
@@ -156,6 +182,29 @@ export const SITE_TYPES: SiteTypeDef[] = [
 export function getSiteType(id: string | null | undefined): SiteTypeDef | undefined {
   if (!id) return undefined
   return SITE_TYPES.find((s) => s.id === id)
+}
+
+/**
+ * One-off cache awarded for surveying a special site. Trade hubs give nothing
+ * on survey (their value is ongoing trade); derelicts drop alloy/energy salvage;
+ * anomalies drop crystal/energy research yields. `mult` scales with the player's
+ * Xeno-Archaeology research level.
+ */
+export function rollSurveyReward(
+  siteType: string | null | undefined,
+  mult = 1,
+): { energy?: number; alloy?: number; crystal?: number } | null {
+  const rnd = (min: number, max: number) => Math.round((min + Math.random() * (max - min)) * mult)
+  switch (siteType) {
+    case 'derelict':
+      return { alloy: rnd(220, 520), energy: rnd(120, 300) }
+    case 'anomaly':
+      return { crystal: rnd(160, 380), energy: rnd(120, 260) }
+    case 'ruin':
+      return { crystal: rnd(120, 300), alloy: rnd(120, 300) }
+    default:
+      return null
+  }
 }
 
 // Chebyshev distance on galaxy coords (matches the sector distance model).

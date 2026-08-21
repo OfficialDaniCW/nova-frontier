@@ -6,6 +6,7 @@ import {
   integer,
   doublePrecision,
   jsonb,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 
 // --- Better Auth required tables -------------------------------------------
@@ -166,13 +167,19 @@ export const starSystems = pgTable('star_systems', {
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
-export const systemDiscoveries = pgTable('system_discoveries', {
+  export const systemDiscoveries = pgTable(
+  'system_discoveries',
+  {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
   systemId: text('systemId').notNull(),
   level: text('level').notNull().default('detected'),
   discoveredAt: timestamp('discoveredAt').notNull().defaultNow(),
-})
+  },
+  (t) => ({
+  userSystemUnique: uniqueIndex('system_discoveries_userId_systemId_key').on(t.userId, t.systemId),
+  }),
+  )
 
 export const fleets = pgTable('fleets', {
   id: text('id').primaryKey(),
