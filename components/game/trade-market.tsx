@@ -41,6 +41,10 @@ export function TradeMarket({ openOrders, myOrders, resources, currentUserId }: 
   const [payment, setPayment] = useState<ResourceType>('energy')
   const [quantity, setQuantity] = useState(50)
   const [price, setPrice] = useState(2)
+  const [orderFilter, setOrderFilter] = useState<'all' | ResourceType>('all')
+
+  const visibleOpenOrders =
+    orderFilter === 'all' ? openOrders : openOrders.filter((o) => o.resource === orderFilter)
 
   function submitOrder() {
     startTransition(async () => {
@@ -192,16 +196,55 @@ export function TradeMarket({ openOrders, myOrders, resources, currentUserId }: 
         )}
 
         <Panel grid className="p-4 sm:p-5">
-          <h2 className="mb-3 font-display text-sm uppercase tracking-wide text-foreground">
-            Open Exchange Orders
-          </h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-display text-sm uppercase tracking-wide text-foreground">
+              Open Exchange Orders
+            </h2>
+            {openOrders.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setOrderFilter('all')}
+                  className={`clip-chevron-sm border px-2 py-1 font-mono text-[0.65rem] uppercase tracking-wide transition-colors ${
+                    orderFilter === 'all'
+                      ? 'border-primary bg-primary/15 text-primary'
+                      : 'border-panel-border text-text-dim hover:text-foreground'
+                  }`}
+                >
+                  All
+                </button>
+                {(['energy', 'alloy', 'crystal'] as ResourceType[]).map((r) => {
+                  const Icon = RESOURCE_ICON[r]
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setOrderFilter(r)}
+                      className={`clip-chevron-sm flex items-center gap-1 border px-2 py-1 font-mono text-[0.65rem] uppercase tracking-wide transition-colors ${
+                        orderFilter === r
+                          ? 'border-primary bg-primary/15 text-primary'
+                          : 'border-panel-border text-text-dim hover:text-foreground'
+                      }`}
+                    >
+                      <Icon className="size-3" />
+                      {r}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
           {openOrders.length === 0 ? (
             <p className="py-6 text-center font-mono text-sm text-text-dim">
               No open orders. Post the first sell order to seed the market.
             </p>
+          ) : visibleOpenOrders.length === 0 ? (
+            <p className="py-6 text-center font-mono text-sm text-text-dim">
+              No open orders for this resource.
+            </p>
           ) : (
             <ul className="flex flex-col gap-2">
-              {openOrders.map((order) => {
+              {visibleOpenOrders.map((order) => {
                 const Icon = RESOURCE_ICON[order.resource as ResourceType] ?? Zap
                 const isMine = order.userId === currentUserId
                 return (
