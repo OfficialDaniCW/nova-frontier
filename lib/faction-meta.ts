@@ -1,5 +1,6 @@
 import { Biohazard, Radio, Recycle, ShieldAlert } from 'lucide-react'
-import type { Faction } from '@/lib/game-data'
+
+export type Faction = 'kessler' | 'obsidian' | 'hollow' | 'bloom'
 
 export const FACTION_META: Record<
   Faction,

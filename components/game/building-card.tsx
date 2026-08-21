@@ -16,8 +16,18 @@ import {
 import { Panel } from '@/components/game/panel'
 import { ChevronButton } from '@/components/game/chevron-button'
 import { ResourceCostRow } from '@/components/game/resource-pill'
-import type { BuildingDef } from '@/lib/game-data'
-import { resourceState } from '@/lib/game-data'
+
+export interface BuildingCardDef {
+  id: string
+  name: string
+  description: string
+  level: number
+  productionRate?: { resource: 'energy' | 'alloy' | 'crystal'; amount: number }
+  storageCapacity?: number
+  cost: { energy?: number; alloy?: number; crystal?: number }
+  buildTimeSec: number
+  maxLevel: number
+}
 
 const BUILDING_ICONS: Record<string, LucideIcon> = {
   'command-spire': Building2,
@@ -32,24 +42,16 @@ const BUILDING_ICONS: Record<string, LucideIcon> = {
   'sensor-array': Satellite,
 }
 
-function canAfford(cost: BuildingDef['cost']) {
-  return (
-    (cost.energy ?? 0) <= resourceState.energy &&
-    (cost.alloy ?? 0) <= resourceState.alloy &&
-    (cost.crystal ?? 0) <= resourceState.crystal
-  )
-}
-
 interface BuildingCardProps {
-  building: BuildingDef
+  building: BuildingCardDef
   queueActive: boolean
+  affordable: boolean
   onUpgrade?: (id: string) => void
 }
 
-export function BuildingCard({ building, queueActive, onUpgrade }: BuildingCardProps) {
+export function BuildingCard({ building, queueActive, affordable, onUpgrade }: BuildingCardProps) {
   const Icon = BUILDING_ICONS[building.id] ?? Building2
   const atMax = building.level >= building.maxLevel
-  const affordable = canAfford(building.cost)
   const locked = atMax || !affordable || queueActive
 
   let lockedReason: string | undefined

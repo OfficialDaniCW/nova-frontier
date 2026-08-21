@@ -29,7 +29,7 @@ export async function getShipyardState() {
     return { def, row, unlocked }
   })
 
-  return { colony, projected, shipDefs, shipRows }
+  return { colony, projected, shipDefs, shipRows, buildingRows }
 }
 
 export async function fabricateShip(shipType: string, quantity: number) {

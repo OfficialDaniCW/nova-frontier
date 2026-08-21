@@ -1,9 +1,12 @@
 import Link from 'next/link'
+import { headers } from 'next/headers'
 import { Hexagon } from 'lucide-react'
 import { ChevronButton } from '@/components/game/chevron-button'
-import { colonyInfo } from '@/lib/game-data'
+import { auth } from '@/lib/auth'
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth.api.getSession({ headers: await headers() })
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-void font-sans">
       <main className="flex w-full max-w-md flex-col items-center gap-8 px-6 py-16 text-center">
@@ -17,11 +20,21 @@ export default function Home() {
             Verge. Governors are advised to expand while the Verge still permits it.
           </p>
         </div>
-        <Link href={`/play/colony/${colonyInfo.id}`}>
-          <ChevronButton variant="concord" size="lg">
-            Establish Uplink
-          </ChevronButton>
-        </Link>
+        <div className="flex flex-col items-center gap-3">
+          <Link href={session?.user ? '/play/colony' : '/sign-up'}>
+            <ChevronButton variant="concord" size="lg">
+              {session?.user ? 'Establish Uplink' : 'Commission a Colony'}
+            </ChevronButton>
+          </Link>
+          {!session?.user && (
+            <Link
+              href="/sign-in"
+              className="font-mono text-[0.7rem] uppercase tracking-wide text-text-faint transition-colors hover:text-concord"
+            >
+              Already a governor? Sign in
+            </Link>
+          )}
+        </div>
       </main>
     </div>
   )

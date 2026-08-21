@@ -1,6 +1,6 @@
-import { BuildingCard } from '@/components/game/building-card'
-import { QueuePanel } from '@/components/game/queue-panel'
-import { activeConstruction, buildings, colonyInfo } from '@/lib/game-data'
+import { redirect } from 'next/navigation'
+import { getColonyState } from '@/app/actions/colony'
+import { ColonyBuildingsGrid } from '@/components/game/colony-buildings-grid'
 
 export default async function ColonyPage({
   params,
@@ -8,7 +8,18 @@ export default async function ColonyPage({
   params: Promise<{ planetId: string }>
 }) {
   const { planetId } = await params
-  const queueActive = Boolean(activeConstruction)
+  const { colony, projected, buildingRows } = await getColonyState()
+
+  if (colony.id !== planetId) redirect(`/play/colony/${colony.id}`)
+
+  const serializedRows = buildingRows.map((row) => ({
+    id: row.id,
+    buildingType: row.buildingType,
+    level: row.level,
+    queuedLevel: row.queuedLevel,
+    queueStartedAt: row.queueStartedAt ? row.queueStartedAt.toISOString() : null,
+    queueEtaAt: row.queueEtaAt ? row.queueEtaAt.toISOString() : null,
+  }))
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -18,26 +29,12 @@ export default async function ColonyPage({
             Colony Systems · {planetId}
           </p>
           <h1 className="font-display text-2xl font-semibold tracking-wide text-text">
-            {colonyInfo.name}
+            {colony.name}
           </h1>
         </div>
       </div>
 
-      {queueActive && (
-        <QueuePanel
-          label="Construction queue"
-          itemName={`${activeConstruction.buildingName} → LVL ${activeConstruction.targetLevel}`}
-          etaMs={activeConstruction.etaMs}
-          startedAtMs={activeConstruction.startedAtMs}
-          accent="concord"
-        />
-      )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {buildings.map((building) => (
-          <BuildingCard key={building.id} building={building} queueActive={queueActive} />
-        ))}
-      </div>
+      <ColonyBuildingsGrid buildingRows={serializedRows} resources={projected} />
     </div>
   )
 }

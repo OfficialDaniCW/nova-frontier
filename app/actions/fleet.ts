@@ -5,12 +5,14 @@ import { db } from '@/lib/db'
 import { colonies, ships, sectors, fleets, combatLogs } from '@/lib/db/schema'
 import { getUserId } from '@/lib/game/session'
 import { ensurePlayerBootstrapped } from '@/lib/game/bootstrap'
+import { ensureGalaxySeeded } from '@/lib/game/galaxy-seed'
 import { runTick } from '@/lib/game/tick'
 import { SECTOR_DISTANCE_SPEED_SEC_PER_UNIT } from '@/lib/game/definitions'
 import { revalidatePath } from 'next/cache'
 
 export async function getGalaxyState() {
   const userId = await getUserId()
+  await ensureGalaxySeeded()
   await runTick()
   const { colony } = await ensurePlayerBootstrapped(userId)
 

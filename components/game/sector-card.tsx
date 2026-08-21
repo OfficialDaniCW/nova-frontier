@@ -1,12 +1,22 @@
 'use client'
 
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Flag } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { SectorDef } from '@/lib/game-data'
-import { FACTION_META } from '@/lib/faction-meta'
+import { FACTION_META, type Faction } from '@/lib/faction-meta'
+
+export interface SectorView {
+  id: string
+  name: string
+  faction: Faction
+  garrisonStrength: number
+  positionX: number
+  positionY: number
+  ownerUserId: string | null
+  isMine: boolean
+}
 
 interface SectorCardProps {
-  sector: SectorDef
+  sector: SectorView
   selected?: boolean
   onSelect: (id: string) => void
 }
@@ -15,6 +25,7 @@ export function SectorCard({ sector, selected, onSelect }: SectorCardProps) {
   const meta = FACTION_META[sector.faction]
   const Icon = meta.icon
   const isBloom = sector.faction === 'bloom'
+  const cleared = sector.garrisonStrength <= 0
 
   return (
     <button
@@ -35,24 +46,29 @@ export function SectorCard({ sector, selected, onSelect }: SectorCardProps) {
             {meta.label}
           </span>
         </span>
-        {sector.cleared && (
-          <CheckCircle2 className="size-4 shrink-0 text-concord" aria-hidden="true" />
+        {sector.ownerUserId ? (
+          <Flag
+            className={cn('size-4 shrink-0', sector.isMine ? 'text-concord' : 'text-text-faint')}
+            aria-hidden="true"
+          />
+        ) : (
+          cleared && <CheckCircle2 className="size-4 shrink-0 text-concord" aria-hidden="true" />
         )}
       </div>
 
       <div>
         <h3 className="font-display text-sm font-semibold text-text">{sector.name}</h3>
         <p className="font-mono text-[0.65rem] text-text-faint">
-          SEC {sector.x.toString().padStart(2, '0')}.{sector.y.toString().padStart(2, '0')}
+          SEC {sector.positionX.toString().padStart(2, '0')}.{sector.positionY.toString().padStart(2, '0')}
         </p>
       </div>
 
       <div className="flex items-center justify-between">
         <span className="font-display text-[0.6rem] uppercase tracking-wide text-text-faint">
-          Defence
+          Garrison
         </span>
         <span className={cn('font-mono text-xs tabular-nums', meta.textClass)}>
-          {sector.scanned ? sector.defense : `~${Math.round(sector.defense / 10) * 10}`}
+          {sector.garrisonStrength}
         </span>
       </div>
     </button>

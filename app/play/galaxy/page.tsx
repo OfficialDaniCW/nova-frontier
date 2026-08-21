@@ -1,13 +1,38 @@
-'use client'
+import { getGalaxyState } from '@/app/actions/fleet'
+import { getUserId } from '@/lib/game/session'
+import { GalaxyView } from '@/components/game/galaxy-view'
+import type { Faction } from '@/lib/faction-meta'
 
-import { useState } from 'react'
-import { SectorCard } from '@/components/game/sector-card'
-import { SectorDetailPanel } from '@/components/game/sector-detail-panel'
-import { sectors } from '@/lib/game-data'
+export default async function GalaxyPage() {
+  const userId = await getUserId()
+  const { sectors, shipRows, activeFleets } = await getGalaxyState()
 
-export default function GalaxyPage() {
-  const [selectedId, setSelectedId] = useState<string>(sectors[0].id)
-  const selected = sectors.find((s) => s.id === selectedId) ?? sectors[0]
+  const sectorViews = sectors.map((s) => ({
+    id: s.id,
+    name: s.name,
+    faction: s.faction as Faction,
+    garrisonStrength: s.garrisonStrength,
+    positionX: s.positionX,
+    positionY: s.positionY,
+    ownerUserId: s.ownerUserId,
+    isMine: s.ownerUserId === userId,
+  }))
+
+  const resourceCaches = Object.fromEntries(
+    sectors.map((s) => [
+      s.id,
+      { energy: s.energyReward, alloy: s.alloyReward, crystal: s.crystalReward },
+    ]),
+  )
+
+  const fleetViews = activeFleets.map((f) => ({
+    id: f.id,
+    sectorId: f.sectorId,
+    sectorName: sectors.find((s) => s.id === f.sectorId)?.name ?? 'Unknown sector',
+    mission: f.mission,
+    arrivesAt: f.arrivesAt.toISOString(),
+    shipCounts: f.shipCounts as Record<string, number>,
+  }))
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -18,22 +43,12 @@ export default function GalaxyPage() {
         <h1 className="font-display text-2xl font-semibold tracking-wide text-text">Star Chart</h1>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {sectors.map((sector) => (
-            <SectorCard
-              key={sector.id}
-              sector={sector}
-              selected={sector.id === selectedId}
-              onSelect={setSelectedId}
-            />
-          ))}
-        </div>
-
-        <div className="lg:sticky lg:top-24 lg:self-start">
-          <SectorDetailPanel sector={selected} />
-        </div>
-      </div>
+      <GalaxyView
+        sectors={sectorViews}
+        resourceCaches={resourceCaches}
+        shipRows={shipRows}
+        fleets={fleetViews}
+      />
     </div>
   )
 }

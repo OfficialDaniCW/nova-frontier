@@ -35,7 +35,7 @@ export async function getResearchState() {
     return { def, row, unlocked }
   })
 
-  return { colony, projected, researchDefs, governor }
+  return { colony, projected, researchDefs, governor, researchRows, buildingRows }
 }
 
 export async function upgradeResearch(techId: string) {

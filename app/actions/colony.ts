@@ -1,6 +1,6 @@
 'use server'
 
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { colonies, buildings } from '@/lib/db/schema'
 import { getUserId } from '@/lib/game/session'
@@ -41,13 +41,10 @@ export async function upgradeBuilding(buildingType: string) {
   const [colony] = await db.select().from(colonies).where(eq(colonies.userId, userId)).limit(1)
   if (!colony) throw new Error('No colony found')
 
-  const [row] = await db
-    .select()
-    .from(buildings)
-    .where(and(eq(buildings.colonyId, colony.id), eq(buildings.buildingType, buildingType)))
-    .limit(1)
+  const buildingRows = await db.select().from(buildings).where(eq(buildings.colonyId, colony.id))
+  const row = buildingRows.find((b) => b.buildingType === buildingType)
   if (!row) throw new Error('Building not found')
-  if (row.queuedLevel != null) throw new Error('Queue already occupied')
+  if (buildingRows.some((b) => b.queuedLevel != null)) throw new Error('Queue already occupied')
 
   const def = getBuildingDef(buildingType)
   const targetLevel = row.level + 1

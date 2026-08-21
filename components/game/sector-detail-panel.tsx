@@ -1,29 +1,68 @@
 'use client'
 
-import { Flag, Radar, Swords } from 'lucide-react'
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { Flag, Package, Radar } from 'lucide-react'
 import { Panel } from '@/components/game/panel'
 import { ChevronButton } from '@/components/game/chevron-button'
 import { ResourceCostRow } from '@/components/game/resource-pill'
 import { StatBar } from '@/components/game/stat-bar'
-import type { SectorDef } from '@/lib/game-data'
+import { AttackFleetDialog } from '@/components/game/attack-fleet-dialog'
 import { FACTION_META } from '@/lib/faction-meta'
 import { cn } from '@/lib/utils'
+import type { SectorView } from '@/components/game/sector-card'
+import { scoutSector, attackSector, salvageSector, colonizeSector } from '@/app/actions/fleet'
 
-interface SectorDetailPanelProps {
-  sector: SectorDef
+interface ShipRow {
+  shipType: string
+  count: number
 }
 
-export function SectorDetailPanel({ sector }: SectorDetailPanelProps) {
+interface SectorDetailPanelProps {
+  sector: SectorView
+  resourceCache: { energy?: number; alloy?: number; crystal?: number }
+  shipRows: ShipRow[]
+  hasScoutProbe: boolean
+  hasHauler: boolean
+}
+
+export function SectorDetailPanel({
+  sector,
+  resourceCache,
+  shipRows,
+  hasScoutProbe,
+  hasHauler,
+}: SectorDetailPanelProps) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
+  const [busy, setBusy] = useState(false)
+
   const meta = FACTION_META[sector.faction]
   const Icon = meta.icon
   const isBloom = sector.faction === 'bloom'
+  const cleared = sector.garrisonStrength <= 0
+  const unclaimed = cleared && !sector.ownerUserId
+
+  async function run(action: () => Promise<{ ok: boolean; etaSec?: number }>, successMsg: string) {
+    setBusy(true)
+    try {
+      const res = await action()
+      toast.success(res.etaSec ? `${successMsg} — ETA ${Math.round(res.etaSec)}s` : successMsg)
+      startTransition(() => router.refresh())
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Action failed')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <Panel grid scanline className="flex flex-col gap-5 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-[0.65rem] uppercase tracking-wide text-text-faint">
-            SEC {sector.x.toString().padStart(2, '0')}.{sector.y.toString().padStart(2, '0')}
+            SEC {sector.positionX.toString().padStart(2, '0')}.{sector.positionY.toString().padStart(2, '0')}
           </p>
           <h2 className="font-display text-lg font-semibold text-text">{sector.name}</h2>
         </div>
@@ -42,72 +81,75 @@ export function SectorDetailPanel({ sector }: SectorDetailPanelProps) {
         </span>
       </div>
 
-      <StatBar
-        label="Defence rating"
-        value={sector.defense}
-        max={100}
-        color={meta.statColor}
-        displayValue={sector.scanned ? sector.defense : `~${Math.round(sector.defense / 10) * 10}`}
-      />
+      <StatBar label="Garrison strength" value={sector.garrisonStrength} max={100} color={meta.statColor} />
 
-      <div className="flex flex-col gap-2">
-        <span className="font-display text-[0.65rem] uppercase tracking-wide text-text-faint">
-          Garrison composition
-        </span>
-        {sector.garrison.length > 0 ? (
-          <ul className="flex flex-col gap-1">
-            {sector.garrison.map((g) => (
-              <li
-                key={g.unit}
-                className="flex items-center justify-between border-b border-panel-border/40 py-1 font-mono text-xs text-text-dim last:border-0"
-              >
-                <span>{g.unit}</span>
-                <span className="tabular-nums text-text">×{g.count}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="font-mono text-xs text-text-faint">No garrison detected.</p>
-        )}
-        {!sector.scanned && (
-          <p className="font-mono text-[0.65rem] text-text-faint">
-            Composition approximate. Scan for exact readings.
-          </p>
-        )}
-      </div>
+      {sector.ownerUserId && (
+        <p className="flex items-center gap-1.5 font-mono text-xs text-text-dim">
+          <Flag className={cn('size-3.5', sector.isMine ? 'text-concord' : 'text-text-faint')} aria-hidden="true" />
+          {sector.isMine ? 'Claimed by your compact.' : 'Claimed by a rival governor.'}
+        </p>
+      )}
 
       <div className="flex flex-col gap-2">
         <span className="font-display text-[0.65rem] uppercase tracking-wide text-text-faint">
           Estimated cache
         </span>
-        <ResourceCostRow cost={sector.resourceCache} />
+        <ResourceCostRow cost={resourceCache} />
       </div>
 
       <div className="flex flex-wrap gap-2 border-t border-panel-border/60 pt-4">
-        {!sector.scanned && (
-          <ChevronButton variant="concord" size="sm">
-            <Radar className="size-3.5" aria-hidden="true" />
-            Scan
-          </ChevronButton>
+        <ChevronButton
+          variant="concord"
+          size="sm"
+          locked={busy || !hasScoutProbe}
+          lockedReason={!hasScoutProbe ? 'No scout probes in hangar.' : undefined}
+          onClick={() => run(() => scoutSector(sector.id), 'Scout dispatched')}
+        >
+          <Radar className="size-3.5" aria-hidden="true" />
+          Scout
+        </ChevronButton>
+
+        {!cleared && !sector.isMine && (
+          <AttackFleetDialog
+            sectorName={sector.name}
+            shipRows={shipRows}
+            disabled={busy}
+            onLaunch={(counts) => run(() => attackSector(sector.id, counts), 'Attack fleet dispatched')}
+          />
         )}
-        {!sector.cleared && (
+
+        {cleared && !sector.ownerUserId && (
           <ChevronButton
-            variant={isBloom ? 'bloom' : 'obsidian'}
+            variant="crystal"
             size="sm"
-            locked={isBloom}
-            lockedReason="Scout the sector before committing an attack fleet."
+            locked={busy || !hasHauler}
+            lockedReason={!hasHauler ? 'No haulers in hangar.' : undefined}
+            onClick={() => run(() => colonizeSector(sector.id), 'Colonization fleet dispatched')}
           >
-            <Swords className="size-3.5" aria-hidden="true" />
-            Launch Attack
-          </ChevronButton>
-        )}
-        {sector.cleared && (
-          <ChevronButton variant="crystal" size="sm">
             <Flag className="size-3.5" aria-hidden="true" />
             Found Colony
           </ChevronButton>
         )}
+
+        {cleared && !sector.isMine && (
+          <ChevronButton
+            variant="alloy"
+            size="sm"
+            locked={busy || !hasHauler}
+            lockedReason={!hasHauler ? 'No haulers in hangar.' : undefined}
+            onClick={() => run(() => salvageSector(sector.id), 'Salvage fleet dispatched')}
+          >
+            <Package className="size-3.5" aria-hidden="true" />
+            Salvage
+          </ChevronButton>
+        )}
       </div>
+
+      {unclaimed && (
+        <p className="font-mono text-[0.6rem] text-text-faint">
+          Sector garrison cleared. Send a hauler to salvage or found a colony here.
+        </p>
+      )}
     </Panel>
   )
 }
