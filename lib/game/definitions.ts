@@ -16,6 +16,7 @@ import {
   Telescope,
   Swords,
   Shield,
+  Landmark,
 } from 'lucide-react'
 
 export type Resource = 'energy' | 'alloy' | 'crystal'
@@ -36,6 +37,8 @@ export interface BuildingDef {
   /** Production rate per second at level 1, if applicable, scaling linearly with level. */
   productionPerLevel?: { resource: Resource; amount: number }
   storagePerLevel?: number
+  /** Governor score awarded per level. Vanity buildings use this instead of production. */
+  scorePerLevel?: number
 }
 
 export const BUILDING_DEFS: BuildingDef[] = [
@@ -152,6 +155,19 @@ export const BUILDING_DEFS: BuildingDef[] = [
     costGrowth: 1.45,
     baseBuildTimeSec: 300,
     buildTimeGrowth: 1.25,
+  },
+  {
+    id: 'monument',
+    name: 'Monument',
+    description:
+      'A pure vanity spire with no production, no unlocks, no defense value — it exists purely to be seen. Governors build it anyway.',
+    icon: Landmark,
+    maxLevel: 15,
+    baseCost: { energy: 1800, alloy: 1800, crystal: 900 },
+    costGrowth: 1.7,
+    baseBuildTimeSec: 600,
+    buildTimeGrowth: 1.4,
+    scorePerLevel: 250,
   },
 ]
 
@@ -296,6 +312,45 @@ export const RESEARCH_DEFS: ResearchDef[] = [
     requiresBuilding: { id: 'research-lab', level: 6 },
     effect: '-5% Bloom intensity growth per level (flavor)',
   },
+  {
+    id: 'deep-space-sensors',
+    name: 'Deep Space Sensors',
+    description: 'Phased subspace arrays that push your detection envelope deeper into the dark.',
+    icon: Satellite,
+    maxLevel: 10,
+    baseCost: { energy: 1200, crystal: 900 },
+    costGrowth: 1.5,
+    baseTimeSec: 480,
+    timeGrowth: 1.3,
+    requiresBuilding: { id: 'sensor-array', level: 3 },
+    effect: '+4 detection range per level',
+  },
+  {
+    id: 'stellar-cartography',
+    name: 'Stellar Cartography',
+    description: 'Predictive charting shortens survey plotting and sharpens long-range readings.',
+    icon: Telescope,
+    maxLevel: 8,
+    baseCost: { energy: 1000, crystal: 1100 },
+    costGrowth: 1.5,
+    baseTimeSec: 540,
+    timeGrowth: 1.3,
+    requiresBuilding: { id: 'sensor-array', level: 4 },
+    effect: '-5% survey travel time per level',
+  },
+  {
+    id: 'xeno-archaeology',
+    name: 'Xeno-Archaeology',
+    description: 'Specialists who pry richer caches from derelicts, ruins, and anomalies.',
+    icon: Atom,
+    maxLevel: 6,
+    baseCost: { energy: 1400, alloy: 800, crystal: 1300 },
+    costGrowth: 1.6,
+    baseTimeSec: 660,
+    timeGrowth: 1.35,
+    requiresBuilding: { id: 'research-lab', level: 5 },
+    effect: '+25% anomaly & derelict survey rewards per level',
+  },
 ]
 
 export function getResearchDef(id: string): ResearchDef {
@@ -412,4 +467,74 @@ export const FACTION_DEFENSE_MULTIPLIER: Record<string, number> = {
   unclaimed: 0.5,
 }
 
-export const SECTOR_DISTANCE_SPEED_SEC_PER_UNIT = 45
+// Seconds of travel per galaxy coordinate unit. The galaxy spans 0..100, so
+// this is tuned so nearby survey hops take ~1-2 min and rim raids ~5 min.
+export const SECTOR_DISTANCE_SPEED_SEC_PER_UNIT = 5
+
+// --- Exploration / sensors -------------------------------------------------
+
+export const BASE_SENSOR_RANGE = 14
+export const SENSOR_RANGE_PER_ARRAY_LEVEL = 2
+export const SENSOR_RANGE_PER_RESEARCH_LEVEL = 4
+// Deep Scan reaches further than passive detection but costs energy + cooldown.
+export const DEEP_SCAN_RANGE_BONUS = 12
+export const DEEP_SCAN_ENERGY_COST = 400
+export const DEEP_SCAN_COOLDOWN_SEC = 120
+
+/**
+ * Passive detection range in galaxy coordinate units, driven by the Sensor
+ * Array building level and the Deep Space Sensors research level.
+ */
+export function sensorRange(sensorArrayLevel: number, deepSpaceSensorsLevel: number): number {
+  return (
+    BASE_SENSOR_RANGE +
+    sensorArrayLevel * SENSOR_RANGE_PER_ARRAY_LEVEL +
+    deepSpaceSensorsLevel * SENSOR_RANGE_PER_RESEARCH_LEVEL
+  )
+}
+
+// --- Resource Priority ------------------------------------------------------
+
+export type ResourcePriority = 'balanced' | 'energy' | 'alloy' | 'crystal'
+
+export interface ResourcePriorityDef {
+  id: ResourcePriority
+  name: string
+  description: string
+  multipliers: Record<Resource, number>
+}
+
+/**
+ * A zero-sum dial: favoring one resource speeds its production but taxes the
+ * other two. 'balanced' is the neutral default every colony starts on.
+ */
+export const RESOURCE_PRIORITY_DEFS: ResourcePriorityDef[] = [
+  {
+    id: 'balanced',
+    name: 'Balanced',
+    description: 'Even output across all three resource lines. No bonus, no penalty.',
+    multipliers: { energy: 1, alloy: 1, crystal: 1 },
+  },
+  {
+    id: 'energy',
+    name: 'Energy Focus',
+    description: '+20% Energy production, -10% Alloy and Crystal.',
+    multipliers: { energy: 1.2, alloy: 0.9, crystal: 0.9 },
+  },
+  {
+    id: 'alloy',
+    name: 'Alloy Focus',
+    description: '+20% Alloy production, -10% Energy and Crystal.',
+    multipliers: { energy: 0.9, alloy: 1.2, crystal: 0.9 },
+  },
+  {
+    id: 'crystal',
+    name: 'Crystal Focus',
+    description: '+20% Crystal production, -10% Energy and Alloy.',
+    multipliers: { energy: 0.9, alloy: 0.9, crystal: 1.2 },
+  },
+]
+
+export function getResourcePriorityDef(id: string): ResourcePriorityDef {
+  return RESOURCE_PRIORITY_DEFS.find((p) => p.id === id) ?? RESOURCE_PRIORITY_DEFS[0]
+}

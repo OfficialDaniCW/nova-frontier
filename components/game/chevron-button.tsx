@@ -38,7 +38,7 @@ const chevronButtonVariants = cva(
   },
 )
 
-interface ChevronButtonProps
+export interface ChevronButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'>,
     VariantProps<typeof chevronButtonVariants> {
   className?: string

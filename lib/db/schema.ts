@@ -6,6 +6,7 @@ import {
   integer,
   doublePrecision,
   jsonb,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 
 // --- Better Auth required tables -------------------------------------------
@@ -72,6 +73,7 @@ export const governors = pgTable('governors', {
   userId: text('userId').notNull(),
   callsign: text('callsign').notNull(),
   score: integer('score').notNull().default(0),
+  tutorialDismissedAt: timestamp('tutorialDismissedAt'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
@@ -81,6 +83,8 @@ export const colonies = pgTable('colonies', {
   governorId: text('governorId').notNull(),
   name: text('name').notNull(),
   planetType: text('planetType').notNull().default('temperate'),
+  homeSystemId: text('homeSystemId'),
+  resourcePriority: text('resourcePriority').notNull().default('balanced'),
   energy: doublePrecision('energy').notNull().default(500),
   alloy: doublePrecision('alloy').notNull().default(300),
   crystal: doublePrecision('crystal').notNull().default(100),
@@ -93,6 +97,7 @@ export const colonies = pgTable('colonies', {
   population: integer('population').notNull().default(120),
   populationCap: integer('populationCap').notNull().default(500),
   lastTickAt: timestamp('lastTickAt').notNull().defaultNow(),
+  lastDeepScanAt: timestamp('lastDeepScanAt'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
@@ -134,6 +139,11 @@ export const sectors = pgTable('sectors', {
   name: text('name').notNull(),
   faction: text('faction').notNull(),
   sectorType: text('sectorType').notNull().default('outpost'),
+  // Planet fields — a sector is now a planet belonging to a star system.
+  systemId: text('systemId'),
+  planetType: text('planetType').notNull().default('rocky'),
+  traits: jsonb('traits').notNull().default([]),
+  slot: integer('slot').notNull().default(0),
   garrisonStrength: integer('garrisonStrength').notNull().default(0),
   bloomIntensity: integer('bloomIntensity').notNull().default(0),
   ownerColonyId: text('ownerColonyId'),
@@ -144,6 +154,32 @@ export const sectors = pgTable('sectors', {
   positionX: integer('positionX').notNull().default(0),
   positionY: integer('positionY').notNull().default(0),
 })
+
+export const starSystems = pgTable('star_systems', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  quadrant: text('quadrant').notNull(),
+  positionX: integer('positionX').notNull(),
+  positionY: integer('positionY').notNull(),
+  starType: text('starType').notNull(),
+  siteType: text('siteType'),
+  factionHint: text('factionHint').notNull().default('unclaimed'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+})
+
+  export const systemDiscoveries = pgTable(
+  'system_discoveries',
+  {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull(),
+  systemId: text('systemId').notNull(),
+  level: text('level').notNull().default('detected'),
+  discoveredAt: timestamp('discoveredAt').notNull().defaultNow(),
+  },
+  (t) => ({
+  userSystemUnique: uniqueIndex('system_discoveries_userId_systemId_key').on(t.userId, t.systemId),
+  }),
+  )
 
 export const fleets = pgTable('fleets', {
   id: text('id').primaryKey(),
@@ -186,6 +222,26 @@ export const marketOrders = pgTable('market_orders', {
   paymentResource: text('paymentResource').notNull().default('energy'),
   status: text('status').notNull().default('open'), // 'open' | 'filled' | 'cancelled'
   createdAt: timestamp('createdAt').notNull().defaultNow(),
+})
+
+export const compacts = pgTable('compacts', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  tag: text('tag').notNull(),
+  leaderUserId: text('leaderUserId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+})
+
+export const compactMembers = pgTable('compact_members', {
+  id: text('id').primaryKey(),
+  compactId: text('compactId').notNull(),
+  userId: text('userId').notNull(),
+  joinedAt: timestamp('joinedAt').notNull().defaultNow(),
+})
+
+export const bloomState = pgTable('bloom_state', {
+  id: text('id').primaryKey(),
+  lastSpreadAt: timestamp('lastSpreadAt').notNull().defaultNow(),
 })
 
 export const commLog = pgTable('comm_log', {

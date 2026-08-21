@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 
-export type StatColor = 'concord' | 'alloy' | 'crystal' | 'obsidian' | 'kessler' | 'hollow'
+export type StatColor = 'concord' | 'alloy' | 'crystal' | 'obsidian' | 'kessler' | 'hollow' | 'bloom'
 
 const STAT_COLOR_VAR: Record<StatColor, string> = {
   concord: 'var(--concord)',
@@ -9,6 +9,7 @@ const STAT_COLOR_VAR: Record<StatColor, string> = {
   obsidian: 'var(--obsidian)',
   kessler: 'var(--kessler)',
   hollow: 'var(--hollow)',
+  bloom: 'var(--bloom)',
 }
 
 const STAT_COLOR_TEXT: Record<StatColor, string> = {
@@ -18,6 +19,7 @@ const STAT_COLOR_TEXT: Record<StatColor, string> = {
   obsidian: 'text-obsidian',
   kessler: 'text-kessler',
   hollow: 'text-hollow',
+  bloom: 'text-bloom',
 }
 
 interface StatBarProps {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Swords } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ChevronButton } from '@/components/game/chevron-button'
+import { ChevronButton, type ChevronButtonProps } from '@/components/game/chevron-button'
 import { SHIP_DEFS } from '@/lib/game/definitions'
 
 interface ShipRow {
@@ -27,6 +28,11 @@ interface AttackFleetDialogProps {
   onLaunch: (shipCounts: Record<string, number>) => Promise<void>
   disabled?: boolean
   lockedReason?: string
+  variant?: ChevronButtonProps['variant']
+  triggerIcon?: LucideIcon
+  triggerLabel?: string
+  dialogTitle?: string
+  dialogDescription?: string
 }
 
 export function AttackFleetDialog({
@@ -35,6 +41,11 @@ export function AttackFleetDialog({
   onLaunch,
   disabled,
   lockedReason,
+  variant = 'obsidian',
+  triggerIcon: TriggerIcon = Swords,
+  triggerLabel = 'Launch Attack',
+  dialogTitle = 'Dispatch attack fleet',
+  dialogDescription,
 }: AttackFleetDialogProps) {
   const [open, setOpen] = useState(false)
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -62,9 +73,9 @@ export function AttackFleetDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <ChevronButton variant="obsidian" size="sm" locked={disabled} lockedReason={lockedReason}>
-            <Swords className="size-3.5" aria-hidden="true" />
-            Launch Attack
+          <ChevronButton variant={variant} size="sm" locked={disabled} lockedReason={lockedReason}>
+            <TriggerIcon className="size-3.5" aria-hidden="true" />
+            {triggerLabel}
           </ChevronButton>
         }
       />
@@ -72,10 +83,10 @@ export function AttackFleetDialog({
       <DialogContent className="border-panel-border bg-slate-950 font-sans">
         <DialogHeader>
           <DialogTitle className="font-display uppercase tracking-wide text-text">
-            Dispatch attack fleet
+            {dialogTitle}
           </DialogTitle>
           <DialogDescription className="text-text-dim">
-            Assign hangar ships to strike {sectorName}.
+            {dialogDescription ?? `Assign hangar ships to strike ${sectorName}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -110,7 +121,7 @@ export function AttackFleetDialog({
 
         <DialogFooter>
           <ChevronButton
-            variant="obsidian"
+            variant={variant}
             onClick={handleLaunch}
             locked={totalSelected < 1 || submitting}
             lockedReason="Select at least one ship."

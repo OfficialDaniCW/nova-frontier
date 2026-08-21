@@ -9,10 +9,12 @@ export interface SectorView {
   name: string
   faction: Faction
   garrisonStrength: number
+  bloomIntensity: number
   positionX: number
   positionY: number
   ownerUserId: string | null
   isMine: boolean
+  isCompactMate?: boolean
 }
 
 interface SectorCardProps {
@@ -47,10 +49,21 @@ export function SectorCard({ sector, selected, onSelect }: SectorCardProps) {
           </span>
         </span>
         {sector.ownerUserId ? (
-          <Flag
-            className={cn('size-4 shrink-0', sector.isMine ? 'text-concord' : 'text-text-faint')}
-            aria-hidden="true"
-          />
+          <span
+            title={sector.isMine ? 'Your territory' : sector.isCompactMate ? 'Compact territory' : undefined}
+          >
+            <Flag
+              className={cn(
+                'size-4 shrink-0',
+                sector.isMine
+                  ? 'text-concord'
+                  : sector.isCompactMate
+                    ? 'text-primary'
+                    : 'text-text-faint',
+              )}
+              aria-hidden="true"
+            />
+          </span>
         ) : (
           cleared && <CheckCircle2 className="size-4 shrink-0 text-concord" aria-hidden="true" />
         )}
@@ -71,6 +84,15 @@ export function SectorCard({ sector, selected, onSelect }: SectorCardProps) {
           {sector.garrisonStrength}
         </span>
       </div>
+
+      {isBloom && (
+        <div className="flex items-center justify-between">
+          <span className="font-display text-[0.6rem] uppercase tracking-wide text-text-faint">
+            Bloom intensity
+          </span>
+          <span className="font-mono text-xs tabular-nums text-bloom">{sector.bloomIntensity}%</span>
+        </div>
+      )}
     </button>
   )
 }

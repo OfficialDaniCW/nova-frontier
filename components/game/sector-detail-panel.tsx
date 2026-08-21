@@ -3,16 +3,17 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Flag, Package, Radar } from 'lucide-react'
+import { Flag, Package, Radar, Biohazard } from 'lucide-react'
 import { Panel } from '@/components/game/panel'
 import { ChevronButton } from '@/components/game/chevron-button'
 import { ResourceCostRow } from '@/components/game/resource-pill'
 import { StatBar } from '@/components/game/stat-bar'
 import { AttackFleetDialog } from '@/components/game/attack-fleet-dialog'
+import { InfoTooltip } from '@/components/game/info-tooltip'
 import { FACTION_META } from '@/lib/faction-meta'
 import { cn } from '@/lib/utils'
 import type { SectorView } from '@/components/game/sector-card'
-import { scoutSector, attackSector, salvageSector, colonizeSector } from '@/app/actions/fleet'
+import { scoutSector, attackSector, salvageSector, colonizeSector, cleanseSector } from '@/app/actions/fleet'
 
 interface ShipRow {
   shipType: string
@@ -83,10 +84,24 @@ export function SectorDetailPanel({
 
       <StatBar label="Garrison strength" value={sector.garrisonStrength} max={100} color={meta.statColor} />
 
+      {isBloom && (
+        <StatBar label="Bloom intensity" value={sector.bloomIntensity} max={100} color="bloom" />
+      )}
+
       {sector.ownerUserId && (
         <p className="flex items-center gap-1.5 font-mono text-xs text-text-dim">
-          <Flag className={cn('size-3.5', sector.isMine ? 'text-concord' : 'text-text-faint')} aria-hidden="true" />
-          {sector.isMine ? 'Claimed by your compact.' : 'Claimed by a rival governor.'}
+          <Flag
+            className={cn(
+              'size-3.5',
+              sector.isMine ? 'text-concord' : sector.isCompactMate ? 'text-primary' : 'text-text-faint',
+            )}
+            aria-hidden="true"
+          />
+          {sector.isMine
+            ? 'Claimed by you.'
+            : sector.isCompactMate
+              ? 'Claimed by your Compact.'
+              : 'Claimed by a rival governor.'}
         </p>
       )}
 
@@ -97,7 +112,7 @@ export function SectorDetailPanel({
         <ResourceCostRow cost={resourceCache} />
       </div>
 
-      <div className="flex flex-wrap gap-2 border-t border-panel-border/60 pt-4">
+      <div className="flex flex-wrap items-center gap-2 border-t border-panel-border/60 pt-4">
         <ChevronButton
           variant="concord"
           size="sm"
@@ -108,40 +123,83 @@ export function SectorDetailPanel({
           <Radar className="size-3.5" aria-hidden="true" />
           Scout
         </ChevronButton>
+        <InfoTooltip label="What does Scout do?">
+          Sends a scout probe to reveal this sector&apos;s garrison strength and resource cache without
+          engaging its defenders. Low risk, no combat.
+        </InfoTooltip>
 
-        {!cleared && !sector.isMine && (
-          <AttackFleetDialog
-            sectorName={sector.name}
-            shipRows={shipRows}
-            disabled={busy}
-            onLaunch={(counts) => run(() => attackSector(sector.id, counts), 'Attack fleet dispatched')}
-          />
+        {!cleared && !sector.isMine && !sector.isCompactMate && (
+          <>
+            <AttackFleetDialog
+              sectorName={sector.name}
+              shipRows={shipRows}
+              disabled={busy}
+              onLaunch={(counts) => run(() => attackSector(sector.id, counts), 'Attack fleet dispatched')}
+            />
+            <InfoTooltip label="What does Attack do?">
+              Dispatches warships to fight the sector&apos;s garrison. Winning reduces garrison strength
+              toward zero; losing costs ships. Faction defense multipliers apply.
+            </InfoTooltip>
+          </>
+        )}
+
+        {isBloom && sector.bloomIntensity > 0 && (
+          <>
+            <AttackFleetDialog
+              sectorName={sector.name}
+              shipRows={shipRows}
+              disabled={busy}
+              variant="bloom"
+              triggerIcon={Biohazard}
+              triggerLabel="Launch Cleanse"
+              dialogTitle="Dispatch cleansing fleet"
+              dialogDescription={`Assign hangar ships to purge Bloom corruption at ${sector.name}.`}
+              onLaunch={(counts) => run(() => cleanseSector(sector.id, counts), 'Cleansing fleet dispatched')}
+            />
+            <InfoTooltip label="What does Cleanse do?">
+              Sends warships to burn back Bloom corruption. Success reduces Bloom intensity — driving it
+              to zero reverts the sector to unclaimed space. Failure intensifies the corruption and costs
+              the fleet.
+            </InfoTooltip>
+          </>
         )}
 
         {cleared && !sector.ownerUserId && (
-          <ChevronButton
-            variant="crystal"
-            size="sm"
-            locked={busy || !hasHauler}
-            lockedReason={!hasHauler ? 'No haulers in hangar.' : undefined}
-            onClick={() => run(() => colonizeSector(sector.id), 'Colonization fleet dispatched')}
-          >
-            <Flag className="size-3.5" aria-hidden="true" />
-            Found Colony
-          </ChevronButton>
+          <>
+            <ChevronButton
+              variant="crystal"
+              size="sm"
+              locked={busy || !hasHauler}
+              lockedReason={!hasHauler ? 'No haulers in hangar.' : undefined}
+              onClick={() => run(() => colonizeSector(sector.id), 'Colonization fleet dispatched')}
+            >
+              <Flag className="size-3.5" aria-hidden="true" />
+              Found Colony
+            </ChevronButton>
+            <InfoTooltip label="What does Found Colony do?">
+              Sends a hauler to claim this cleared sector under your banner, adding it to your territory
+              and score. Requires the garrison to be fully cleared first.
+            </InfoTooltip>
+          </>
         )}
 
-        {cleared && !sector.isMine && (
-          <ChevronButton
-            variant="alloy"
-            size="sm"
-            locked={busy || !hasHauler}
-            lockedReason={!hasHauler ? 'No haulers in hangar.' : undefined}
-            onClick={() => run(() => salvageSector(sector.id), 'Salvage fleet dispatched')}
-          >
-            <Package className="size-3.5" aria-hidden="true" />
-            Salvage
-          </ChevronButton>
+        {cleared && !sector.isMine && !sector.isCompactMate && (
+          <>
+            <ChevronButton
+              variant="alloy"
+              size="sm"
+              locked={busy || !hasHauler}
+              lockedReason={!hasHauler ? 'No haulers in hangar.' : undefined}
+              onClick={() => run(() => salvageSector(sector.id), 'Salvage fleet dispatched')}
+            >
+              <Package className="size-3.5" aria-hidden="true" />
+              Salvage
+            </ChevronButton>
+            <InfoTooltip label="What does Salvage do?">
+              Sends a hauler to strip the cleared sector&apos;s resource cache without claiming territory
+              here. Faster payout, no lasting foothold.
+            </InfoTooltip>
+          </>
         )}
       </div>
 

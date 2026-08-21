@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Chakra_Petch, Inter, JetBrains_Mono } from 'next/font/google'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import './globals.css'
 
 const chakraPetch = Chakra_Petch({
@@ -64,7 +65,7 @@ export default function RootLayout({
       className={`dark bg-void ${chakraPetch.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body className="antialiased font-sans">
-        {children}
+        <TooltipProvider delay={150}>{children}</TooltipProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

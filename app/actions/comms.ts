@@ -1,11 +1,12 @@
 'use server'
 
-import { desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { commLog, governors, research, combatLogs, sectors } from '@/lib/db/schema'
+import { commLog, governors, research, combatLogs, sectors, buildings } from '@/lib/db/schema'
 import { getUserId } from '@/lib/game/session'
 import { ensurePlayerBootstrapped } from '@/lib/game/bootstrap'
 import { runTick } from '@/lib/game/tick'
+import { scoreForUser } from '@/app/actions/compact'
 
 export async function getCommLog() {
   const userId = await getUserId()
@@ -42,12 +43,19 @@ export async function getLeaderboard() {
         .from(sectors)
         .where(eq(sectors.ownerUserId, gov.userId))
 
-      const score = sectorsClaimed * 100 + winsCount * 25 + researchLevels * 10
+      const [monument] = await db
+        .select()
+        .from(buildings)
+        .where(and(eq(buildings.userId, gov.userId), eq(buildings.buildingType, 'monument')))
+        .limit(1)
+
+      const score = await scoreForUser(gov.userId, gov.id)
       return {
         governor: gov,
         sectorsClaimed,
         combatWins: winsCount,
         researchLevels,
+        monumentLevel: monument?.level ?? 0,
         score,
       }
     }),

@@ -25,6 +25,7 @@ export function StyleGuideSectorGrid({ sectors }: StyleGuideSectorGridProps) {
             name: sector.name,
             faction: sector.faction,
             garrisonStrength: sector.garrison.reduce((sum, g) => sum + g.count, 0),
+            bloomIntensity: sector.faction === 'bloom' ? 40 : 0,
             positionX: sector.x,
             positionY: sector.y,
             ownerUserId: null,

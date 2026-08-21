@@ -5,12 +5,14 @@ import { db } from '@/lib/db'
 import { colonies, buildings } from '@/lib/db/schema'
 import { getUserId } from '@/lib/game/session'
 import { ensurePlayerBootstrapped } from '@/lib/game/bootstrap'
-import { runTick } from '@/lib/game/tick'
+import { runTick, recomputeColonyRates } from '@/lib/game/tick'
 import {
   BUILDING_DEFS,
   getBuildingDef,
   buildingCostAtLevel,
   buildingTimeAtLevel,
+  RESOURCE_PRIORITY_DEFS,
+  type ResourcePriority,
 } from '@/lib/game/definitions'
 import { canAfford, subtractCost, projectColonyResources } from '@/lib/game/resources'
 import { revalidatePath } from 'next/cache'
@@ -70,6 +72,23 @@ export async function upgradeBuilding(buildingType: string) {
       queueEtaAt: new Date(now.getTime() + etaMs),
     })
     .where(eq(buildings.id, row.id))
+
+  revalidatePath('/play/colony')
+  return { ok: true }
+}
+
+export async function setResourcePriority(priority: ResourcePriority) {
+  const userId = await getUserId()
+  await runTick()
+
+  const valid = RESOURCE_PRIORITY_DEFS.some((p) => p.id === priority)
+  if (!valid) throw new Error('Invalid resource priority')
+
+  const [colony] = await db.select().from(colonies).where(eq(colonies.userId, userId)).limit(1)
+  if (!colony) throw new Error('No colony found')
+
+  await db.update(colonies).set({ resourcePriority: priority }).where(eq(colonies.id, colony.id))
+  await recomputeColonyRates(colony.id)
 
   revalidatePath('/play/colony')
   return { ok: true }
