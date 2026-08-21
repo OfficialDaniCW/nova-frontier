@@ -44,7 +44,7 @@ export function GameNav() {
   return (
     <nav
       aria-label="Primary"
-      className="flex items-center gap-1 overflow-x-auto border-t border-panel-border/60 bg-slate-950/40 px-4 py-1.5 sm:px-6"
+      className="flex items-center gap-1 overflow-x-auto border-t border-panel-border/60 bg-slate-950/60 px-4 py-1.5 backdrop-blur-sm sm:px-6"
     >
       {NAV_ITEMS.map((item) => {
         const isActive = pathname?.startsWith(item.href.split('/').slice(0, 3).join('/'))
@@ -67,7 +67,7 @@ export function GameNav() {
             className={cn(
               'clip-chevron-sm flex shrink-0 items-center gap-1.5 border border-transparent px-3 py-1.5 font-display text-[0.7rem] uppercase tracking-wide transition-colors',
               isActive
-                ? 'border-concord/50 bg-concord/10 text-concord'
+                ? 'border-concord/50 bg-concord/10 text-concord shadow-[0_0_12px_-2px_var(--concord-dim)]'
                 : 'text-text-dim hover:border-panel-border hover:text-text',
             )}
           >

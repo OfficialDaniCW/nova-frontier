@@ -8,6 +8,7 @@ import { colonies, governors } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { projectColonyResources } from '@/lib/game/resources'
 import { SignOutButton } from '@/components/game/sign-out-button'
+import { SystemTelemetry } from '@/components/game/system-telemetry'
 
 export async function GameHeader() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -23,14 +24,27 @@ export async function GameHeader() {
   const projected = colony ? projectColonyResources(colony) : null
 
   return (
-    <header className="border-b border-panel-border/60 bg-slate-950/70 backdrop-blur-sm">
+    <header className="relative border-b border-panel-border/60 bg-slate-950/80 backdrop-blur-sm">
+      {/* Top edge accent line — the console's power rail */}
+      <div
+        className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-concord/60 to-transparent"
+        aria-hidden="true"
+      />
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <Link href="/play/colony" className="flex items-center gap-2">
-          <Hexagon className="size-5 text-concord" strokeWidth={1.5} aria-hidden="true" />
-          <span className="font-display text-sm font-bold uppercase tracking-[0.15em] text-text">
-            Nova <span className="text-concord">Frontier</span>
-          </span>
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/play/colony" className="flex items-center gap-2">
+            <Hexagon
+              className="size-5 text-concord pulse-glow rounded-full"
+              strokeWidth={1.5}
+              aria-hidden="true"
+            />
+            <span className="font-display text-sm font-bold uppercase tracking-[0.15em] text-text">
+              Nova <span className="text-concord">Frontier</span>
+            </span>
+          </Link>
+          <span className="hidden h-4 w-px bg-panel-border lg:block" aria-hidden="true" />
+          <SystemTelemetry />
+        </div>
 
         {projected && colony && (
           <div className="flex flex-wrap items-center gap-2">
