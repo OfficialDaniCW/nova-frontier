@@ -257,7 +257,7 @@ export default function StyleGuidePage() {
                 <h3 className="mb-3 font-display text-xs uppercase tracking-wide text-text-dim">
                   Building card
                 </h3>
-                <BuildingCard building={reactor} queueActive={false} />
+                <BuildingCard building={reactor} queueActive={false} affordable />
               </div>
             </div>
           </div>

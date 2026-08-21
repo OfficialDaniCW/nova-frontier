@@ -1,0 +1,14 @@
+import { Skeleton } from '@/components/ui/skeleton'
+import { ListPanelSkeleton } from '@/components/game/panel-skeleton'
+
+export default function CommsLoading() {
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className="size-5 rounded-full" />
+        <Skeleton className="h-5 w-32" />
+      </div>
+      <ListPanelSkeleton rows={8} />
+    </div>
+  )
+}

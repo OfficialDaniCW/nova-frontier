@@ -1,6 +1,6 @@
-import { Biohazard, Radio, Recycle, ShieldAlert } from 'lucide-react'
+import { Biohazard, Flag, Radio, Recycle, ShieldAlert, Waypoints } from 'lucide-react'
 
-export type Faction = 'kessler' | 'obsidian' | 'hollow' | 'bloom'
+export type Faction = 'kessler' | 'obsidian' | 'hollow' | 'bloom' | 'unclaimed' | 'concord'
 
 export const FACTION_META: Record<
   Faction,
@@ -43,6 +43,22 @@ export const FACTION_META: Record<
     textClass: 'text-bloom',
     borderClass: 'border-bloom/40',
     bgClass: 'bg-bloom/5',
+    statColor: 'concord',
+  },
+  unclaimed: {
+    label: 'Unclaimed',
+    icon: Waypoints,
+    textClass: 'text-text-dim',
+    borderClass: 'border-panel-border',
+    bgClass: 'bg-slate-950/40',
+    statColor: 'concord',
+  },
+  concord: {
+    label: 'Concord Compact',
+    icon: Flag,
+    textClass: 'text-concord',
+    borderClass: 'border-concord/40',
+    bgClass: 'bg-concord/5',
     statColor: 'concord',
   },
 }

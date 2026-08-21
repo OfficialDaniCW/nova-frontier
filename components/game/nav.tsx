@@ -15,7 +15,6 @@ import {
   Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { colonyInfo } from '@/lib/game-data'
 
 interface NavItem {
   label: string
@@ -26,15 +25,15 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Colony', href: `/play/colony/${colonyInfo.id}`, icon: Building2 },
-  { label: 'Fabrication', href: `/play/fabrication/${colonyInfo.id}`, icon: Factory, disabled: true },
-  { label: 'Research', href: '/play/research', icon: FlaskConical, disabled: true },
+  { label: 'Colony', href: `/play/colony`, icon: Building2 },
+  { label: 'Fabrication', href: `/play/fabrication`, icon: Factory },
+  { label: 'Research', href: '/play/research', icon: FlaskConical },
   { label: 'Star Chart', href: '/play/galaxy', icon: Globe2 },
-  { label: 'Fleet', href: '/play/fleet', icon: Rocket, disabled: true },
+  { label: 'Fleet', href: '/play/fleet', icon: Rocket },
   { label: 'Compact', href: '/play/compact', icon: Users, disabled: true },
-  { label: 'Market', href: '/play/market', icon: ArrowLeftRight, disabled: true },
-  { label: 'Log', href: '/play/log', icon: ScrollText, disabled: true },
-  { label: 'Leaderboard', href: '/play/leaderboard', icon: Trophy, disabled: true },
+  { label: 'Trade', href: '/play/trade', icon: ArrowLeftRight },
+  { label: 'Comms', href: '/play/comms', icon: ScrollText },
+  { label: 'Leaderboard', href: '/play/leaderboard', icon: Trophy },
 ]
 
 export function GameNav() {

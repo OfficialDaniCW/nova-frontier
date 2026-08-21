@@ -60,12 +60,15 @@ export function AttackFleetDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <ChevronButton variant="obsidian" size="sm" locked={disabled} lockedReason={lockedReason}>
-          <Swords className="size-3.5" aria-hidden="true" />
-          Launch Attack
-        </ChevronButton>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <ChevronButton variant="obsidian" size="sm" locked={disabled} lockedReason={lockedReason}>
+            <Swords className="size-3.5" aria-hidden="true" />
+            Launch Attack
+          </ChevronButton>
+        }
+      />
+
       <DialogContent className="border-panel-border bg-slate-950 font-sans">
         <DialogHeader>
           <DialogTitle className="font-display uppercase tracking-wide text-text">

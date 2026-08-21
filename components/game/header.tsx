@@ -20,7 +20,7 @@ export async function GameHeader() {
     ? await db.select().from(colonies).where(eq(colonies.userId, userId)).limit(1)
     : []
 
-  const projected = colony ? projectColonyResources(colony, new Date()) : null
+  const projected = colony ? projectColonyResources(colony) : null
 
   return (
     <header className="border-b border-panel-border/60 bg-slate-950/70 backdrop-blur-sm">
