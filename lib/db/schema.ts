@@ -205,6 +205,11 @@ export const compactMembers = pgTable('compact_members', {
   joinedAt: timestamp('joinedAt').notNull().defaultNow(),
 })
 
+export const bloomState = pgTable('bloom_state', {
+  id: text('id').primaryKey(),
+  lastSpreadAt: timestamp('lastSpreadAt').notNull().defaultNow(),
+})
+
 export const commLog = pgTable('comm_log', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),

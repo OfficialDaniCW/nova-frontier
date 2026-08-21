@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Flag, Package, Radar } from 'lucide-react'
+import { Flag, Package, Radar, Biohazard } from 'lucide-react'
 import { Panel } from '@/components/game/panel'
 import { ChevronButton } from '@/components/game/chevron-button'
 import { ResourceCostRow } from '@/components/game/resource-pill'
@@ -13,7 +13,7 @@ import { InfoTooltip } from '@/components/game/info-tooltip'
 import { FACTION_META } from '@/lib/faction-meta'
 import { cn } from '@/lib/utils'
 import type { SectorView } from '@/components/game/sector-card'
-import { scoutSector, attackSector, salvageSector, colonizeSector } from '@/app/actions/fleet'
+import { scoutSector, attackSector, salvageSector, colonizeSector, cleanseSector } from '@/app/actions/fleet'
 
 interface ShipRow {
   shipType: string
@@ -84,6 +84,10 @@ export function SectorDetailPanel({
 
       <StatBar label="Garrison strength" value={sector.garrisonStrength} max={100} color={meta.statColor} />
 
+      {isBloom && (
+        <StatBar label="Bloom intensity" value={sector.bloomIntensity} max={100} color="bloom" />
+      )}
+
       {sector.ownerUserId && (
         <p className="flex items-center gap-1.5 font-mono text-xs text-text-dim">
           <Flag
@@ -135,6 +139,27 @@ export function SectorDetailPanel({
             <InfoTooltip label="What does Attack do?">
               Dispatches warships to fight the sector&apos;s garrison. Winning reduces garrison strength
               toward zero; losing costs ships. Faction defense multipliers apply.
+            </InfoTooltip>
+          </>
+        )}
+
+        {isBloom && sector.bloomIntensity > 0 && (
+          <>
+            <AttackFleetDialog
+              sectorName={sector.name}
+              shipRows={shipRows}
+              disabled={busy}
+              variant="bloom"
+              triggerIcon={Biohazard}
+              triggerLabel="Launch Cleanse"
+              dialogTitle="Dispatch cleansing fleet"
+              dialogDescription={`Assign hangar ships to purge Bloom corruption at ${sector.name}.`}
+              onLaunch={(counts) => run(() => cleanseSector(sector.id, counts), 'Cleansing fleet dispatched')}
+            />
+            <InfoTooltip label="What does Cleanse do?">
+              Sends warships to burn back Bloom corruption. Success reduces Bloom intensity — driving it
+              to zero reverts the sector to unclaimed space. Failure intensifies the corruption and costs
+              the fleet.
             </InfoTooltip>
           </>
         )}

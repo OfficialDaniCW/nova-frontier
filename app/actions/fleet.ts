@@ -144,6 +144,24 @@ export async function salvageSector(sectorId: string) {
   return launchFleet(userId, colony.id, sectorId, 'salvage', { hauler: 1 })
 }
 
+export async function cleanseSector(sectorId: string, shipCounts: Record<string, number>) {
+  const userId = await getUserId()
+  await runTick()
+  const { colony } = await ensurePlayerBootstrapped(userId)
+  if (!colony) throw new Error('No colony found')
+
+  const totalShips = Object.values(shipCounts).reduce((a, b) => a + b, 0)
+  if (totalShips < 1) throw new Error('Select at least one ship')
+
+  const [sector] = await db.select().from(sectors).where(eq(sectors.id, sectorId)).limit(1)
+  if (!sector) throw new Error('Sector not found')
+  if (sector.faction !== 'bloom' || sector.bloomIntensity <= 0) {
+    throw new Error('Only Bloom-corrupted sectors can be cleansed')
+  }
+
+  return launchFleet(userId, colony.id, sectorId, 'cleanse', shipCounts)
+}
+
 export async function colonizeSector(sectorId: string) {
   const userId = await getUserId()
   await runTick()

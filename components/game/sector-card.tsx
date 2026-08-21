@@ -9,6 +9,7 @@ export interface SectorView {
   name: string
   faction: Faction
   garrisonStrength: number
+  bloomIntensity: number
   positionX: number
   positionY: number
   ownerUserId: string | null
@@ -83,6 +84,15 @@ export function SectorCard({ sector, selected, onSelect }: SectorCardProps) {
           {sector.garrisonStrength}
         </span>
       </div>
+
+      {isBloom && (
+        <div className="flex items-center justify-between">
+          <span className="font-display text-[0.6rem] uppercase tracking-wide text-text-faint">
+            Bloom intensity
+          </span>
+          <span className="font-mono text-xs tabular-nums text-bloom">{sector.bloomIntensity}%</span>
+        </div>
+      )}
     </button>
   )
 }

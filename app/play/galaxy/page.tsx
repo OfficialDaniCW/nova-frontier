@@ -12,6 +12,7 @@ export default async function GalaxyPage() {
     name: s.name,
     faction: s.faction as Faction,
     garrisonStrength: s.garrisonStrength,
+    bloomIntensity: s.bloomIntensity,
     positionX: s.positionX,
     positionY: s.positionY,
     ownerUserId: s.ownerUserId,
