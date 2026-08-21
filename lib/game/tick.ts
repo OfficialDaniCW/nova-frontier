@@ -12,6 +12,8 @@ import {
   commLog,
   bloomState,
   systemDiscoveries,
+  governors,
+  doctrines,
 } from '@/lib/db/schema'
 import {
   getBuildingDef,
@@ -22,6 +24,7 @@ import {
 } from '@/lib/game/definitions'
 import { projectColonyResources } from '@/lib/game/resources'
 import { getTraitDef, rollSurveyReward, planetTraitBonus } from '@/lib/game/galaxy'
+import { creedModifiers, allegianceCombatMultiplier } from '@/lib/game/creed'
 
 const BLOOM_SPREAD_INTERVAL_MS = 3 * 60 * 1000
 const BLOOM_SPREAD_THRESHOLD = 55
@@ -90,6 +93,7 @@ export async function recomputeColonyRates(colonyId: string) {
   let energyRate = 6
   let alloyRate = 4
   let crystalRate = 1
+  let devotionRate = 0
   let energyCap = 2000
   let alloyCap = 2000
   let crystalCap = 1000
@@ -102,6 +106,9 @@ export async function recomputeColonyRates(colonyId: string) {
       if (def.productionPerLevel.resource === 'energy') energyRate += add
       if (def.productionPerLevel.resource === 'alloy') alloyRate += add
       if (def.productionPerLevel.resource === 'crystal') crystalRate += add
+    }
+    if (def.devotionPerLevel) {
+      devotionRate += def.devotionPerLevel * b.level
     }
     if (def.storagePerLevel) {
       const add = def.storagePerLevel * b.level
@@ -127,12 +134,30 @@ export async function recomputeColonyRates(colonyId: string) {
     energyRate *= bonus.energyRate
     alloyRate *= bonus.alloyRate
     crystalRate *= bonus.crystalRate
+
+    // Creed signature + unlocked doctrines + allegiance signature layer on last.
+    const [gov] = await db
+      .select()
+      .from(governors)
+      .where(eq(governors.id, colony.governorId))
+      .limit(1)
+    if (gov) {
+      const doctrineRows = await db
+        .select({ doctrineId: doctrines.doctrineId, level: doctrines.level })
+        .from(doctrines)
+        .where(eq(doctrines.governorId, gov.id))
+      const mods = creedModifiers(gov.creedId, doctrineRows, gov.allegiance)
+      energyRate *= mods.energyMult
+      alloyRate *= mods.alloyMult
+      crystalRate *= mods.crystalMult
+      devotionRate *= mods.devotionMult
+    }
   }
 
   await settleColony(colonyId)
   await db
     .update(colonies)
-    .set({ energyRate, alloyRate, crystalRate, energyCap, alloyCap, crystalCap })
+    .set({ energyRate, alloyRate, crystalRate, devotionRate, energyCap, alloyCap, crystalCap })
     .where(eq(colonies.id, colonyId))
 }
 
@@ -232,7 +257,30 @@ async function resolveFleetArrivals(now: Date) {
         .set({ resolved: true, status: 'surveyed' })
         .where(eq(fleets.id, fleet.id))
     } else if (fleet.mission === 'attack') {
-      const attackerPower = fleetTotalPower(shipCounts, 'attack')
+      const basePower = fleetTotalPower(shipCounts, 'attack')
+
+      // Layer creed fleet-attack bonus + allegiance Zeal/Dissent onto base power.
+      let creedAttackMult = 1
+      let zealKind: 'zeal' | 'dissent' | null = null
+      let zealMult = 1
+      const [atkGov] = await db
+        .select()
+        .from(governors)
+        .where(eq(governors.userId, fleet.userId))
+        .limit(1)
+      if (atkGov) {
+        const doctrineRows = await db
+          .select({ doctrineId: doctrines.doctrineId, level: doctrines.level })
+          .from(doctrines)
+          .where(eq(doctrines.governorId, atkGov.id))
+        creedAttackMult = creedModifiers(atkGov.creedId, doctrineRows, atkGov.allegiance)
+          .fleetAttackMult
+        const za = allegianceCombatMultiplier(atkGov.allegiance, sector.faction)
+        zealMult = za.mult
+        zealKind = za.kind
+      }
+      const attackerPower = Math.round(basePower * creedAttackMult * zealMult)
+
       const mult = FACTION_DEFENSE_MULTIPLIER[sector.faction] ?? 1
       const defenderPower = sector.garrisonStrength * mult
       const win = attackerPower > defenderPower
@@ -316,13 +364,19 @@ async function resolveFleetArrivals(now: Date) {
         }
       }
 
+      const zealNote =
+        zealKind === 'zeal'
+          ? ' Zeal surged against a rival faction.'
+          : zealKind === 'dissent'
+            ? ' Dissent dulled the assault on your own faction.'
+            : ''
       await logComm(
         fleet.userId,
         'combat',
         win ? 'success' : 'danger',
-        win
+        (win
           ? `Victory at ${sector.name} — garrison broken. Fleet may now salvage the sector.`
-          : `Defeat at ${sector.name} — fleet routed with heavy losses.`,
+          : `Defeat at ${sector.name} — fleet routed with heavy losses.`) + zealNote,
       )
 
       await db

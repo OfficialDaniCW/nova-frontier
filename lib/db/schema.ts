@@ -74,6 +74,11 @@ export const governors = pgTable('governors', {
   callsign: text('callsign').notNull(),
   score: integer('score').notNull().default(0),
   tutorialDismissedAt: timestamp('tutorialDismissedAt'),
+  // Political allegiance (NPC faction pledge) and spiritual creed.
+  allegiance: text('allegiance'),
+  allegianceSetAt: timestamp('allegianceSetAt'),
+  creedId: text('creedId'),
+  creedSetAt: timestamp('creedSetAt'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
@@ -94,6 +99,9 @@ export const colonies = pgTable('colonies', {
   energyRate: doublePrecision('energyRate').notNull().default(12),
   alloyRate: doublePrecision('alloyRate').notNull().default(8),
   crystalRate: doublePrecision('crystalRate').notNull().default(2),
+  devotion: doublePrecision('devotion').notNull().default(0),
+  devotionCap: doublePrecision('devotionCap').notNull().default(1000),
+  devotionRate: doublePrecision('devotionRate').notNull().default(0),
   population: integer('population').notNull().default(120),
   populationCap: integer('populationCap').notNull().default(500),
   lastTickAt: timestamp('lastTickAt').notNull().defaultNow(),
@@ -133,6 +141,25 @@ export const ships = pgTable('ships', {
   queueStartedAt: timestamp('queueStartedAt'),
   queueEtaAt: timestamp('queueEtaAt'),
 })
+
+// Unlocked creed doctrines, one row per governor+doctrine, tracking its level.
+export const doctrines = pgTable(
+  'doctrines',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId').notNull(),
+    governorId: text('governorId').notNull(),
+    doctrineId: text('doctrineId').notNull(),
+    level: integer('level').notNull().default(0),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (t) => ({
+    governorDoctrineUnique: uniqueIndex('doctrines_governorId_doctrineId_key').on(
+      t.governorId,
+      t.doctrineId,
+    ),
+  }),
+)
 
 export const sectors = pgTable('sectors', {
   id: text('id').primaryKey(),
