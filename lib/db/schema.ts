@@ -82,6 +82,7 @@ export const colonies = pgTable('colonies', {
   governorId: text('governorId').notNull(),
   name: text('name').notNull(),
   planetType: text('planetType').notNull().default('temperate'),
+  homeSystemId: text('homeSystemId'),
   resourcePriority: text('resourcePriority').notNull().default('balanced'),
   energy: doublePrecision('energy').notNull().default(500),
   alloy: doublePrecision('alloy').notNull().default(300),
@@ -95,6 +96,7 @@ export const colonies = pgTable('colonies', {
   population: integer('population').notNull().default(120),
   populationCap: integer('populationCap').notNull().default(500),
   lastTickAt: timestamp('lastTickAt').notNull().defaultNow(),
+  lastDeepScanAt: timestamp('lastDeepScanAt'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
@@ -136,6 +138,11 @@ export const sectors = pgTable('sectors', {
   name: text('name').notNull(),
   faction: text('faction').notNull(),
   sectorType: text('sectorType').notNull().default('outpost'),
+  // Planet fields — a sector is now a planet belonging to a star system.
+  systemId: text('systemId'),
+  planetType: text('planetType').notNull().default('rocky'),
+  traits: jsonb('traits').notNull().default([]),
+  slot: integer('slot').notNull().default(0),
   garrisonStrength: integer('garrisonStrength').notNull().default(0),
   bloomIntensity: integer('bloomIntensity').notNull().default(0),
   ownerColonyId: text('ownerColonyId'),
@@ -145,6 +152,26 @@ export const sectors = pgTable('sectors', {
   crystalReward: doublePrecision('crystalReward').notNull().default(0),
   positionX: integer('positionX').notNull().default(0),
   positionY: integer('positionY').notNull().default(0),
+})
+
+export const starSystems = pgTable('star_systems', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  quadrant: text('quadrant').notNull(),
+  positionX: integer('positionX').notNull(),
+  positionY: integer('positionY').notNull(),
+  starType: text('starType').notNull(),
+  siteType: text('siteType'),
+  factionHint: text('factionHint').notNull().default('unclaimed'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+})
+
+export const systemDiscoveries = pgTable('system_discoveries', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull(),
+  systemId: text('systemId').notNull(),
+  level: text('level').notNull().default('detected'),
+  discoveredAt: timestamp('discoveredAt').notNull().defaultNow(),
 })
 
 export const fleets = pgTable('fleets', {

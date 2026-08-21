@@ -312,6 +312,45 @@ export const RESEARCH_DEFS: ResearchDef[] = [
     requiresBuilding: { id: 'research-lab', level: 6 },
     effect: '-5% Bloom intensity growth per level (flavor)',
   },
+  {
+    id: 'deep-space-sensors',
+    name: 'Deep Space Sensors',
+    description: 'Phased subspace arrays that push your detection envelope deeper into the dark.',
+    icon: Satellite,
+    maxLevel: 10,
+    baseCost: { energy: 1200, crystal: 900 },
+    costGrowth: 1.5,
+    baseTimeSec: 480,
+    timeGrowth: 1.3,
+    requiresBuilding: { id: 'sensor-array', level: 3 },
+    effect: '+4 detection range per level',
+  },
+  {
+    id: 'stellar-cartography',
+    name: 'Stellar Cartography',
+    description: 'Predictive charting shortens survey plotting and sharpens long-range readings.',
+    icon: Telescope,
+    maxLevel: 8,
+    baseCost: { energy: 1000, crystal: 1100 },
+    costGrowth: 1.5,
+    baseTimeSec: 540,
+    timeGrowth: 1.3,
+    requiresBuilding: { id: 'sensor-array', level: 4 },
+    effect: '-5% survey travel time per level',
+  },
+  {
+    id: 'xeno-archaeology',
+    name: 'Xeno-Archaeology',
+    description: 'Specialists who pry richer caches from derelicts, ruins, and anomalies.',
+    icon: Atom,
+    maxLevel: 6,
+    baseCost: { energy: 1400, alloy: 800, crystal: 1300 },
+    costGrowth: 1.6,
+    baseTimeSec: 660,
+    timeGrowth: 1.35,
+    requiresBuilding: { id: 'research-lab', level: 5 },
+    effect: '+25% anomaly & derelict survey rewards per level',
+  },
 ]
 
 export function getResearchDef(id: string): ResearchDef {
@@ -428,7 +467,31 @@ export const FACTION_DEFENSE_MULTIPLIER: Record<string, number> = {
   unclaimed: 0.5,
 }
 
-export const SECTOR_DISTANCE_SPEED_SEC_PER_UNIT = 45
+// Seconds of travel per galaxy coordinate unit. The galaxy spans 0..100, so
+// this is tuned so nearby survey hops take ~1-2 min and rim raids ~5 min.
+export const SECTOR_DISTANCE_SPEED_SEC_PER_UNIT = 5
+
+// --- Exploration / sensors -------------------------------------------------
+
+export const BASE_SENSOR_RANGE = 14
+export const SENSOR_RANGE_PER_ARRAY_LEVEL = 2
+export const SENSOR_RANGE_PER_RESEARCH_LEVEL = 4
+// Deep Scan reaches further than passive detection but costs energy + cooldown.
+export const DEEP_SCAN_RANGE_BONUS = 12
+export const DEEP_SCAN_ENERGY_COST = 400
+export const DEEP_SCAN_COOLDOWN_SEC = 120
+
+/**
+ * Passive detection range in galaxy coordinate units, driven by the Sensor
+ * Array building level and the Deep Space Sensors research level.
+ */
+export function sensorRange(sensorArrayLevel: number, deepSpaceSensorsLevel: number): number {
+  return (
+    BASE_SENSOR_RANGE +
+    sensorArrayLevel * SENSOR_RANGE_PER_ARRAY_LEVEL +
+    deepSpaceSensorsLevel * SENSOR_RANGE_PER_RESEARCH_LEVEL
+  )
+}
 
 // --- Resource Priority ------------------------------------------------------
 
