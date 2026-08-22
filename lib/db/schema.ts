@@ -7,6 +7,7 @@ import {
   doublePrecision,
   jsonb,
   uniqueIndex,
+  index,
 } from 'drizzle-orm/pg-core'
 
 // --- Better Auth required tables -------------------------------------------
@@ -274,8 +275,47 @@ export const bloomState = pgTable('bloom_state', {
 export const commLog = pgTable('comm_log', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
-  category: text('category').notNull(), // 'construction' | 'research' | 'fleet' | 'combat' | 'trade' | 'system'
+  category: text('category').notNull(), // 'construction' | 'research' | 'fleet' | 'combat' | 'trade' | 'system' | 'relay' | 'diplomacy'
   severity: text('severity').notNull().default('info'), // 'info' | 'success' | 'warning' | 'danger'
   message: text('message').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
+
+// Player-to-player messaging: direct DMs and compact (alliance) channel chat.
+export const messages = pgTable(
+  'messages',
+  {
+    id: text('id').primaryKey(),
+    channel: text('channel').notNull(), // 'direct' | 'compact'
+    senderUserId: text('senderUserId').notNull(),
+    senderCallsign: text('senderCallsign').notNull(),
+    recipientUserId: text('recipientUserId'), // set for 'direct'
+    compactId: text('compactId'), // set for 'compact'
+    body: text('body').notNull(),
+    readAt: timestamp('readAt'), // recipient read marker (direct only)
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (t) => ({
+    directIdx: index('messages_recipient_sender_idx').on(t.recipientUserId, t.senderUserId),
+    compactIdx: index('messages_compact_created_idx').on(t.compactId, t.createdAt),
+  }),
+)
+
+// Alliance-vs-alliance diplomacy. One row per unordered compact pair, only when
+// the relation is non-neutral or a proposal is pending. compactAId < compactBId.
+export const diplomaticRelations = pgTable(
+  'diplomatic_relations',
+  {
+    id: text('id').primaryKey(),
+    compactAId: text('compactAId').notNull(),
+    compactBId: text('compactBId').notNull(),
+    status: text('status').notNull().default('neutral'), // 'neutral' | 'war' | 'pact'
+    pendingProposal: text('pendingProposal'), // 'peace' | 'pact'
+    proposedByCompactId: text('proposedByCompactId'),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (t) => ({
+    pairUnique: uniqueIndex('diplomatic_relations_pair_key').on(t.compactAId, t.compactBId),
+  }),
+)
