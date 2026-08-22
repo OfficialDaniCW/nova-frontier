@@ -103,6 +103,7 @@ export const colonies = pgTable('colonies', {
   devotion: doublePrecision('devotion').notNull().default(0),
   devotionCap: doublePrecision('devotionCap').notNull().default(1000),
   devotionRate: doublePrecision('devotionRate').notNull().default(0),
+  raidShieldUntil: timestamp('raidShieldUntil'), // PvP raid immunity window
   population: integer('population').notNull().default(120),
   populationCap: integer('populationCap').notNull().default(500),
   lastTickAt: timestamp('lastTickAt').notNull().defaultNow(),
@@ -213,9 +214,12 @@ export const fleets = pgTable('fleets', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
   colonyId: text('colonyId').notNull(),
-  sectorId: text('sectorId').notNull(),
-  mission: text('mission').notNull(),
+  sectorId: text('sectorId'), // null for PvP raids (no galaxy sector target)
+  mission: text('mission').notNull(), // 'attack' | 'survey' | 'obsidian_raid' | 'pvp_raid' | ...
   shipCounts: jsonb('shipCounts').notNull().default({}),
+  // PvP raid targeting: the defender's home colony + owning user.
+  targetColonyId: text('targetColonyId'),
+  defenderUserId: text('defenderUserId'),
   departedAt: timestamp('departedAt').notNull().defaultNow(),
   arrivesAt: timestamp('arrivesAt').notNull(),
   status: text('status').notNull().default('en_route'),
@@ -225,7 +229,7 @@ export const fleets = pgTable('fleets', {
 export const combatLogs = pgTable('combat_logs', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
-  sectorId: text('sectorId').notNull(),
+  sectorId: text('sectorId'), // null for PvP raids (no galaxy sector)
   sectorName: text('sectorName').notNull(),
   faction: text('faction').notNull(),
   outcome: text('outcome').notNull(),

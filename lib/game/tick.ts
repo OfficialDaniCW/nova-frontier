@@ -25,6 +25,14 @@ import {
 import { projectColonyResources } from '@/lib/game/resources'
 import { getTraitDef, rollSurveyReward, planetTraitBonus } from '@/lib/game/galaxy'
 import { creedModifiers, allegianceCombatMultiplier } from '@/lib/game/creed'
+import {
+  fleetAttackPower,
+  stationedDefensePower,
+  shieldMitigation,
+  applyLosses,
+  RAID_LOOT_FRACTION,
+  RAID_SHIELD_MS,
+} from '@/lib/game/combat'
 
 const BLOOM_SPREAD_INTERVAL_MS = 3 * 60 * 1000
 const BLOOM_SPREAD_THRESHOLD = 55
@@ -224,6 +232,245 @@ function fleetTotalPower(shipCounts: Record<string, number>, stat: 'attack' | 'd
   return total
 }
 
+/** Look up a governor's callsign by userId, falling back to a generic label. */
+async function callsignForUser(userId: string): Promise<string> {
+  const [gov] = await db
+    .select({ callsign: governors.callsign })
+    .from(governors)
+    .where(eq(governors.userId, userId))
+    .limit(1)
+  return gov?.callsign ?? 'Unknown Governor'
+}
+
+/** Deduct casualties from a specific colony's stationed hangar rows. */
+async function deductHangarLosses(colonyId: string, lost: Record<string, number>) {
+  for (const [shipId, count] of Object.entries(lost)) {
+    if (!count || count <= 0) continue
+    const [row] = await db
+      .select()
+      .from(ships)
+      .where(and(eq(ships.colonyId, colonyId), eq(ships.shipType, shipId)))
+      .limit(1)
+    if (row) {
+      await db
+        .update(ships)
+        .set({ count: Math.max(0, row.count - count) })
+        .where(eq(ships.id, row.id))
+    }
+  }
+}
+
+/**
+ * Resolve a player-vs-player raid fleet arriving at a defender's home colony.
+ * Attacker power (with creed bonus) is compared against the defender's
+ * stationed hangar + Shield Generator. On a win the raider loots a slice of the
+ * defender's stored resources (reduced by their shield); both sides take
+ * losses. Either way the target gains a temporary raid shield.
+ */
+async function resolvePvpRaid(fleet: typeof fleets.$inferSelect, now: Date) {
+  const shipCounts = fleet.shipCounts as Record<string, number>
+  const targetColonyId = fleet.targetColonyId
+  const finish = (status: string) =>
+    db.update(fleets).set({ resolved: true, status }).where(eq(fleets.id, fleet.id))
+
+  // Attacker's own home colony (where surviving ships return).
+  const [attackerColony] = await db
+    .select()
+    .from(colonies)
+    .where(eq(colonies.id, fleet.colonyId))
+    .limit(1)
+
+  if (!targetColonyId) {
+    // Target vanished — return the fleet intact.
+    await finish('recalled')
+    return
+  }
+
+  const [target] = await db
+    .select()
+    .from(colonies)
+    .where(eq(colonies.id, targetColonyId))
+    .limit(1)
+
+  if (!target) {
+    await logComm(
+      fleet.userId,
+      'combat',
+      'warning',
+      `Raid aborted — the target colony no longer exists. Your fleet returns home.`,
+    )
+    await finish('recalled')
+    return
+  }
+
+  const attackerCallsign = await callsignForUser(fleet.userId)
+  const defenderCallsign = await callsignForUser(target.userId)
+
+  // Settle the defender's economy so loot reflects current stored resources.
+  const settled = await settleColony(target.id)
+
+  // Defender's stationed ships + Shield Generator level.
+  const defenderShipRows = await db
+    .select()
+    .from(ships)
+    .where(eq(ships.colonyId, target.id))
+  const stationed: Record<string, number> = {}
+  for (const r of defenderShipRows) if (r.count > 0) stationed[r.shipType] = r.count
+  const [shieldRow] = await db
+    .select()
+    .from(buildings)
+    .where(and(eq(buildings.colonyId, target.id), eq(buildings.buildingType, 'shield-generator')))
+    .limit(1)
+  const shieldLevel = shieldRow?.level ?? 0
+
+  // Attacker power: ship attack × creed fleet-attack multiplier.
+  let creedAttackMult = 1
+  const [atkGov] = await db
+    .select()
+    .from(governors)
+    .where(eq(governors.userId, fleet.userId))
+    .limit(1)
+  if (atkGov) {
+    const doctrineRows = await db
+      .select({ doctrineId: doctrines.doctrineId, level: doctrines.level })
+      .from(doctrines)
+      .where(eq(doctrines.governorId, atkGov.id))
+    creedAttackMult = creedModifiers(atkGov.creedId, doctrineRows, atkGov.allegiance).fleetAttackMult
+  }
+  const attackerPower = Math.round(fleetAttackPower(shipCounts) * creedAttackMult)
+  const defenderPower = Math.round(stationedDefensePower(stationed, shieldLevel))
+  const win = attackerPower > defenderPower
+
+  let energyLooted = 0
+  let alloyLooted = 0
+  let crystalLooted = 0
+  let attackerLost: Record<string, number> = {}
+  let defenderLost: Record<string, number> = {}
+
+  if (win) {
+    // Loot a slice of stored resources, reduced by the defender's shield.
+    const keep = shieldMitigation(shieldLevel)
+    const lootFrac = RAID_LOOT_FRACTION * (1 - keep)
+    if (settled) {
+      energyLooted = Math.floor(settled.energy * lootFrac)
+      alloyLooted = Math.floor(settled.alloy * lootFrac)
+      crystalLooted = Math.floor(settled.crystal * lootFrac)
+      await db
+        .update(colonies)
+        .set({
+          energy: Math.max(0, settled.energy - energyLooted),
+          alloy: Math.max(0, settled.alloy - alloyLooted),
+          crystal: Math.max(0, settled.crystal - crystalLooted),
+        })
+        .where(eq(colonies.id, target.id))
+    }
+    // Winner takes light losses (~15%), defender loses a slice of stationed ships (~25%).
+    attackerLost = applyLosses(shipCounts, 0.15).lost
+    defenderLost = applyLosses(stationed, 0.25).lost
+  } else {
+    // Failed raid: attacker routed (~70% losses), defender minimal (~8%).
+    attackerLost = applyLosses(shipCounts, 0.7).lost
+    defenderLost = applyLosses(stationed, 0.08).lost
+  }
+
+  // Return surviving attacker ships to the attacker's home hangar.
+  const survivors: Record<string, number> = {}
+  for (const [shipId, count] of Object.entries(shipCounts)) {
+    const remaining = count - (attackerLost[shipId] ?? 0)
+    if (remaining > 0) survivors[shipId] = remaining
+  }
+  if (attackerColony) {
+    for (const [shipId, count] of Object.entries(survivors)) {
+      const [row] = await db
+        .select()
+        .from(ships)
+        .where(and(eq(ships.colonyId, attackerColony.id), eq(ships.shipType, shipId)))
+        .limit(1)
+      if (row) {
+        await db.update(ships).set({ count: row.count + count }).where(eq(ships.id, row.id))
+      } else {
+        await db.insert(ships).values({
+          id: newId('ship'),
+          userId: fleet.userId,
+          colonyId: attackerColony.id,
+          shipType: shipId,
+          count,
+        })
+      }
+    }
+  }
+
+  // Defender loses its casualties from the hangar.
+  await deductHangarLosses(target.id, defenderLost)
+
+  // Grant the target a raid shield.
+  await db
+    .update(colonies)
+    .set({ raidShieldUntil: new Date(now.getTime() + RAID_SHIELD_MS) })
+    .where(eq(colonies.id, target.id))
+
+  // Dual combat-log rows (attacker + defender perspectives).
+  await db.insert(combatLogs).values({
+    id: newId('combat'),
+    userId: fleet.userId,
+    sectorId: null,
+    sectorName: `Raid vs ${defenderCallsign}`,
+    faction: 'player',
+    outcome: win ? 'win' : 'loss',
+    attackerPower,
+    defenderPower,
+    shipsLost: attackerLost,
+    energyLooted,
+    alloyLooted,
+    crystalLooted,
+  })
+  await db.insert(combatLogs).values({
+    id: newId('combat'),
+    userId: target.userId,
+    sectorId: null,
+    sectorName: `Raid by ${attackerCallsign}`,
+    faction: 'player',
+    outcome: win ? 'loss' : 'win',
+    attackerPower,
+    defenderPower,
+    shipsLost: defenderLost,
+    energyLooted,
+    alloyLooted,
+    crystalLooted,
+  })
+
+  // Comm alerts for both governors.
+  if (win) {
+    await logComm(
+      fleet.userId,
+      'combat',
+      'success',
+      `Raid on ${defenderCallsign} succeeded — looted ${energyLooted} Energy, ${alloyLooted} Alloy, ${crystalLooted} Crystal.`,
+    )
+    await logComm(
+      target.userId,
+      'combat',
+      'danger',
+      `${attackerCallsign} raided your colony ${target.name} and made off with ${energyLooted} Energy, ${alloyLooted} Alloy, ${crystalLooted} Crystal.`,
+    )
+  } else {
+    await logComm(
+      fleet.userId,
+      'combat',
+      'danger',
+      `Raid on ${defenderCallsign} failed — their defenses held and your fleet was routed.`,
+    )
+    await logComm(
+      target.userId,
+      'combat',
+      'success',
+      `You repelled a raid by ${attackerCallsign}. Their fleet was driven off with heavy losses.`,
+    )
+  }
+
+  await finish(win ? 'victorious' : 'defeated')
+}
+
 async function resolveFleetArrivals(now: Date) {
   const due = await db
     .select()
@@ -231,6 +478,17 @@ async function resolveFleetArrivals(now: Date) {
     .where(and(eq(fleets.resolved, false), lte(fleets.arrivesAt, now)))
 
   for (const fleet of due) {
+    // PvP raids target another player's colony, not a galaxy sector, so they
+    // resolve before (and instead of) the sector lookup below.
+    if (fleet.mission === 'pvp_raid') {
+      await resolvePvpRaid(fleet, now)
+      continue
+    }
+
+    if (!fleet.sectorId) {
+      await db.update(fleets).set({ resolved: true, status: 'lost' }).where(eq(fleets.id, fleet.id))
+      continue
+    }
     const [sector] = await db.select().from(sectors).where(eq(sectors.id, fleet.sectorId)).limit(1)
     if (!sector) {
       await db.update(fleets).set({ resolved: true, status: 'lost' }).where(eq(fleets.id, fleet.id))
