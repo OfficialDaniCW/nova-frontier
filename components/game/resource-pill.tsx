@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type ResourceType = 'energy' | 'alloy' | 'crystal'
+export type ResourceType = 'energy' | 'alloy' | 'crystal' | 'devotion'
 
 export const RESOURCE_META: Record<
   ResourceType,
@@ -24,6 +24,12 @@ export const RESOURCE_META: Record<
     textClass: 'text-crystal',
     borderClass: 'border-crystal/40',
     bgClass: 'bg-crystal/10',
+  },
+  devotion: {
+    label: 'Devotion',
+    textClass: 'text-devotion',
+    borderClass: 'border-devotion/40',
+    bgClass: 'bg-devotion/10',
   },
 }
 

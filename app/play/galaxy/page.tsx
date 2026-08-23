@@ -18,14 +18,16 @@ export default async function GalaxyPage() {
     ]),
   )
 
-  const fleetViews = activeFleets.map((f) => ({
-    id: f.id,
-    sectorId: f.sectorId,
-    sectorName: sectors.find((s) => s.id === f.sectorId)?.name ?? 'Deep space',
-    mission: f.mission,
-    arrivesAt: f.arrivesAt.toISOString(),
-    shipCounts: f.shipCounts as Record<string, number>,
-  }))
+  const fleetViews = activeFleets
+    .filter((f) => f.sectorId != null) // PvP raids (no sector) show in the War Room
+    .map((f) => ({
+      id: f.id,
+      sectorId: f.sectorId as string,
+      sectorName: sectors.find((s) => s.id === f.sectorId)?.name ?? 'Deep space',
+      mission: f.mission,
+      arrivesAt: f.arrivesAt.toISOString(),
+      shipCounts: f.shipCounts as Record<string, number>,
+    }))
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">

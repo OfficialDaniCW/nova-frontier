@@ -7,6 +7,7 @@ import {
   doublePrecision,
   jsonb,
   uniqueIndex,
+  index,
 } from 'drizzle-orm/pg-core'
 
 // --- Better Auth required tables -------------------------------------------
@@ -74,6 +75,11 @@ export const governors = pgTable('governors', {
   callsign: text('callsign').notNull(),
   score: integer('score').notNull().default(0),
   tutorialDismissedAt: timestamp('tutorialDismissedAt'),
+  // Political allegiance (NPC faction pledge) and spiritual creed.
+  allegiance: text('allegiance'),
+  allegianceSetAt: timestamp('allegianceSetAt'),
+  creedId: text('creedId'),
+  creedSetAt: timestamp('creedSetAt'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
@@ -94,6 +100,10 @@ export const colonies = pgTable('colonies', {
   energyRate: doublePrecision('energyRate').notNull().default(12),
   alloyRate: doublePrecision('alloyRate').notNull().default(8),
   crystalRate: doublePrecision('crystalRate').notNull().default(2),
+  devotion: doublePrecision('devotion').notNull().default(0),
+  devotionCap: doublePrecision('devotionCap').notNull().default(1000),
+  devotionRate: doublePrecision('devotionRate').notNull().default(0),
+  raidShieldUntil: timestamp('raidShieldUntil'), // PvP raid immunity window
   population: integer('population').notNull().default(120),
   populationCap: integer('populationCap').notNull().default(500),
   lastTickAt: timestamp('lastTickAt').notNull().defaultNow(),
@@ -133,6 +143,25 @@ export const ships = pgTable('ships', {
   queueStartedAt: timestamp('queueStartedAt'),
   queueEtaAt: timestamp('queueEtaAt'),
 })
+
+// Unlocked creed doctrines, one row per governor+doctrine, tracking its level.
+export const doctrines = pgTable(
+  'doctrines',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId').notNull(),
+    governorId: text('governorId').notNull(),
+    doctrineId: text('doctrineId').notNull(),
+    level: integer('level').notNull().default(0),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (t) => ({
+    governorDoctrineUnique: uniqueIndex('doctrines_governorId_doctrineId_key').on(
+      t.governorId,
+      t.doctrineId,
+    ),
+  }),
+)
 
 export const sectors = pgTable('sectors', {
   id: text('id').primaryKey(),
@@ -185,9 +214,12 @@ export const fleets = pgTable('fleets', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
   colonyId: text('colonyId').notNull(),
-  sectorId: text('sectorId').notNull(),
-  mission: text('mission').notNull(),
+  sectorId: text('sectorId'), // null for PvP raids (no galaxy sector target)
+  mission: text('mission').notNull(), // 'attack' | 'survey' | 'obsidian_raid' | 'pvp_raid' | ...
   shipCounts: jsonb('shipCounts').notNull().default({}),
+  // PvP raid targeting: the defender's home colony + owning user.
+  targetColonyId: text('targetColonyId'),
+  defenderUserId: text('defenderUserId'),
   departedAt: timestamp('departedAt').notNull().defaultNow(),
   arrivesAt: timestamp('arrivesAt').notNull(),
   status: text('status').notNull().default('en_route'),
@@ -197,7 +229,7 @@ export const fleets = pgTable('fleets', {
 export const combatLogs = pgTable('combat_logs', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
-  sectorId: text('sectorId').notNull(),
+  sectorId: text('sectorId'), // null for PvP raids (no galaxy sector)
   sectorName: text('sectorName').notNull(),
   faction: text('faction').notNull(),
   outcome: text('outcome').notNull(),
@@ -247,8 +279,47 @@ export const bloomState = pgTable('bloom_state', {
 export const commLog = pgTable('comm_log', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
-  category: text('category').notNull(), // 'construction' | 'research' | 'fleet' | 'combat' | 'trade' | 'system'
+  category: text('category').notNull(), // 'construction' | 'research' | 'fleet' | 'combat' | 'trade' | 'system' | 'relay' | 'diplomacy'
   severity: text('severity').notNull().default('info'), // 'info' | 'success' | 'warning' | 'danger'
   message: text('message').notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
+
+// Player-to-player messaging: direct DMs and compact (alliance) channel chat.
+export const messages = pgTable(
+  'messages',
+  {
+    id: text('id').primaryKey(),
+    channel: text('channel').notNull(), // 'direct' | 'compact'
+    senderUserId: text('senderUserId').notNull(),
+    senderCallsign: text('senderCallsign').notNull(),
+    recipientUserId: text('recipientUserId'), // set for 'direct'
+    compactId: text('compactId'), // set for 'compact'
+    body: text('body').notNull(),
+    readAt: timestamp('readAt'), // recipient read marker (direct only)
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (t) => ({
+    directIdx: index('messages_recipient_sender_idx').on(t.recipientUserId, t.senderUserId),
+    compactIdx: index('messages_compact_created_idx').on(t.compactId, t.createdAt),
+  }),
+)
+
+// Alliance-vs-alliance diplomacy. One row per unordered compact pair, only when
+// the relation is non-neutral or a proposal is pending. compactAId < compactBId.
+export const diplomaticRelations = pgTable(
+  'diplomatic_relations',
+  {
+    id: text('id').primaryKey(),
+    compactAId: text('compactAId').notNull(),
+    compactBId: text('compactBId').notNull(),
+    status: text('status').notNull().default('neutral'), // 'neutral' | 'war' | 'pact'
+    pendingProposal: text('pendingProposal'), // 'peace' | 'pact'
+    proposedByCompactId: text('proposedByCompactId'),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (t) => ({
+    pairUnique: uniqueIndex('diplomatic_relations_pair_key').on(t.compactAId, t.compactBId),
+  }),
+)

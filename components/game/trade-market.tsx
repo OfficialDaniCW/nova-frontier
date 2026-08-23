@@ -6,10 +6,13 @@ import { toast } from 'sonner'
 import { Zap, Layers, Gem, X, ArrowRightLeft } from 'lucide-react'
 import { Panel } from '@/components/game/panel'
 import { ChevronButton } from '@/components/game/chevron-button'
-import { ResourcePill, type ResourceType } from '@/components/game/resource-pill'
+import { ResourcePill } from '@/components/game/resource-pill'
 import { postSellOrder, cancelOrder } from '@/app/actions/market'
 
-const RESOURCE_ICON: Record<ResourceType, typeof Zap> = {
+// Only these three resources are tradable on the exchange (Devotion is not).
+type TradableResource = 'energy' | 'alloy' | 'crystal'
+
+const RESOURCE_ICON: Record<TradableResource, typeof Zap> = {
   energy: Zap,
   alloy: Layers,
   crystal: Gem,
@@ -37,11 +40,11 @@ interface TradeMarketProps {
 export function TradeMarket({ openOrders, myOrders, resources, currentUserId }: TradeMarketProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [resource, setResource] = useState<ResourceType>('crystal')
-  const [payment, setPayment] = useState<ResourceType>('energy')
+  const [resource, setResource] = useState<TradableResource>('crystal')
+  const [payment, setPayment] = useState<TradableResource>('energy')
   const [quantity, setQuantity] = useState(50)
   const [price, setPrice] = useState(2)
-  const [orderFilter, setOrderFilter] = useState<'all' | ResourceType>('all')
+  const [orderFilter, setOrderFilter] = useState<'all' | TradableResource>('all')
 
   const visibleOpenOrders =
     orderFilter === 'all' ? openOrders : openOrders.filter((o) => o.resource === orderFilter)
@@ -77,7 +80,7 @@ export function TradeMarket({ openOrders, myOrders, resources, currentUserId }: 
           Post Sell Order
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          {(['energy', 'alloy', 'crystal'] as ResourceType[]).map((r) => {
+          {(['energy', 'alloy', 'crystal'] as TradableResource[]).map((r) => {
             const Icon = RESOURCE_ICON[r]
             return (
               <button
@@ -100,7 +103,7 @@ export function TradeMarket({ openOrders, myOrders, resources, currentUserId }: 
           <ArrowRightLeft className="size-4" />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {(['energy', 'alloy', 'crystal'] as ResourceType[])
+          {(['energy', 'alloy', 'crystal'] as TradableResource[])
             .filter((r) => r !== resource)
             .map((r) => {
               const Icon = RESOURCE_ICON[r]
@@ -213,7 +216,7 @@ export function TradeMarket({ openOrders, myOrders, resources, currentUserId }: 
                 >
                   All
                 </button>
-                {(['energy', 'alloy', 'crystal'] as ResourceType[]).map((r) => {
+                {(['energy', 'alloy', 'crystal'] as TradableResource[]).map((r) => {
                   const Icon = RESOURCE_ICON[r]
                   return (
                     <button
@@ -245,7 +248,7 @@ export function TradeMarket({ openOrders, myOrders, resources, currentUserId }: 
           ) : (
             <ul className="flex flex-col gap-2">
               {visibleOpenOrders.map((order) => {
-                const Icon = RESOURCE_ICON[order.resource as ResourceType] ?? Zap
+                const Icon = RESOURCE_ICON[order.resource as TradableResource] ?? Zap
                 const isMine = order.userId === currentUserId
                 return (
                   <li

@@ -22,6 +22,8 @@ export const STARTER_BUILDING_LEVELS: Record<string, number> = {
   shipyard: 1,
   'shield-generator': 0,
   'sensor-array': 1,
+  sanctum: 1,
+  monument: 0,
 }
 
 export const STARTER_SHIP_COUNTS: Record<string, number> = {
@@ -116,8 +118,30 @@ export async function foundColony(userId: string, options: FoundingOptions = {})
 
 /**
  * Idempotent: ensures the given user has a governor, a home colony, starter
- * buildings, and a starter fleet. Safe to call on every /play load.
+ * buildings, and a starter fleet. Safe to call on every /play load. Also
+ * self-heals colonies that predate newer buildings (e.g. the Sanctum) by
+ * inserting any missing building rows at level 0.
  */
 export async function ensurePlayerBootstrapped(userId: string) {
-  return foundColony(userId)
+  const result = await foundColony(userId)
+  const colony = result.colony
+  if (colony) {
+    const existing = await db
+      .select({ buildingType: buildings.buildingType })
+      .from(buildings)
+      .where(eq(buildings.colonyId, colony.id))
+    const have = new Set(existing.map((b) => b.buildingType))
+    for (const def of BUILDING_DEFS) {
+      if (!have.has(def.id)) {
+        await db.insert(buildings).values({
+          id: newId('bld'),
+          userId,
+          colonyId: colony.id,
+          buildingType: def.id,
+          level: 0,
+        })
+      }
+    }
+  }
+  return result
 }

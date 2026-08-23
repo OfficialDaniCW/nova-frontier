@@ -9,7 +9,8 @@ export function projectColonyResources(colony: Colony, atMs: number = Date.now()
   const energy = Math.min(colony.energyCap, colony.energy + colony.energyRate * elapsedSec)
   const alloy = Math.min(colony.alloyCap, colony.alloy + colony.alloyRate * elapsedSec)
   const crystal = Math.min(colony.crystalCap, colony.crystal + colony.crystalRate * elapsedSec)
-  return { energy, alloy, crystal }
+  const devotion = Math.min(colony.devotionCap, colony.devotion + colony.devotionRate * elapsedSec)
+  return { energy, alloy, crystal, devotion }
 }
 
 export function canAfford(

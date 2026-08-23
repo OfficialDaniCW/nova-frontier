@@ -1,8 +1,11 @@
 import { getCompactState } from '@/app/actions/compact'
+import { getDiplomacy } from '@/app/actions/diplomacy'
 import { CompactPanel } from '@/components/game/compact-panel'
+import { DiplomacyPanel } from '@/components/game/diplomacy-panel'
 
 export default async function CompactPage() {
   const state = await getCompactState()
+  const diplomacy = await getDiplomacy()
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -14,6 +17,8 @@ export default async function CompactPage() {
       </div>
 
       <CompactPanel state={state} />
+
+      {diplomacy.inCompact && <DiplomacyPanel state={diplomacy} />}
     </div>
   )
 }

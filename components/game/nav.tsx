@@ -14,6 +14,9 @@ import {
   Trophy,
   Lock,
   BookOpen,
+  Flame,
+  MessageSquare,
+  Crosshair,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -32,8 +35,11 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Star Chart', href: '/play/galaxy', icon: Globe2 },
   { label: 'Fleet', href: '/play/fleet', icon: Rocket },
   { label: 'Compact', href: '/play/compact', icon: Users },
+  { label: 'War Room', href: '/play/war', icon: Crosshair },
+  { label: 'Creed', href: '/play/creed', icon: Flame },
   { label: 'Trade', href: '/play/trade', icon: ArrowLeftRight },
   { label: 'Comms', href: '/play/comms', icon: ScrollText },
+  { label: 'Relay', href: '/play/relay', icon: MessageSquare },
   { label: 'Leaderboard', href: '/play/leaderboard', icon: Trophy },
   { label: 'Codex', href: '/play/codex', icon: BookOpen },
 ]

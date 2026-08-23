@@ -17,6 +17,7 @@ import {
   Swords,
   Shield,
   Landmark,
+  Flame,
 } from 'lucide-react'
 
 export type Resource = 'energy' | 'alloy' | 'crystal'
@@ -39,6 +40,8 @@ export interface BuildingDef {
   storagePerLevel?: number
   /** Governor score awarded per level. Vanity buildings use this instead of production. */
   scorePerLevel?: number
+  /** Devotion generated per second per level (Temple). Kept off the Resource union. */
+  devotionPerLevel?: number
 }
 
 export const BUILDING_DEFS: BuildingDef[] = [
@@ -155,6 +158,19 @@ export const BUILDING_DEFS: BuildingDef[] = [
     costGrowth: 1.45,
     baseBuildTimeSec: 300,
     buildTimeGrowth: 1.25,
+  },
+  {
+    id: 'sanctum',
+    name: 'Sanctum',
+    description:
+      'A consecrated spire that channels the colony\u2019s faith into Devotion — the currency of Creed doctrines.',
+    icon: Flame,
+    maxLevel: 20,
+    baseCost: { energy: 1600, alloy: 900, crystal: 700 },
+    costGrowth: 1.5,
+    baseBuildTimeSec: 360,
+    buildTimeGrowth: 1.3,
+    devotionPerLevel: 0.5,
   },
   {
     id: 'monument',

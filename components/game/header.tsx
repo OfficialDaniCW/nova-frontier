@@ -1,12 +1,14 @@
 import Link from 'next/link'
 import { headers } from 'next/headers'
-import { Gem, Hexagon, Layers, Zap } from 'lucide-react'
+import { Flame, Gem, Hexagon, Layers, Zap } from 'lucide-react'
 import { ResourcePill } from '@/components/game/resource-pill'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { colonies, governors } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { projectColonyResources } from '@/lib/game/resources'
+import { getCreed } from '@/lib/game/creed'
+import { FACTION_META, type Faction } from '@/lib/faction-meta'
 import { SignOutButton } from '@/components/game/sign-out-button'
 import { SystemTelemetry } from '@/components/game/system-telemetry'
 
@@ -22,6 +24,11 @@ export async function GameHeader() {
     : []
 
   const projected = colony ? projectColonyResources(colony) : null
+
+  const creed = getCreed(governor?.creedId)
+  const allegiance = governor?.allegiance
+    ? FACTION_META[governor.allegiance as Faction]
+    : null
 
   return (
     <header className="relative border-b border-panel-border/60 bg-slate-950/80 backdrop-blur-sm">
@@ -51,10 +58,44 @@ export async function GameHeader() {
             <ResourcePill type="energy" icon={Zap} value={projected.energy} rate={colony.energyRate} />
             <ResourcePill type="alloy" icon={Layers} value={projected.alloy} rate={colony.alloyRate} />
             <ResourcePill type="crystal" icon={Gem} value={projected.crystal} rate={colony.crystalRate} />
+            {(colony.devotionRate > 0 || projected.devotion > 0) && (
+              <ResourcePill
+                type="devotion"
+                icon={Flame}
+                value={projected.devotion}
+                rate={colony.devotionRate}
+              />
+            )}
           </div>
         )}
 
         <div className="flex items-center gap-2">
+          {(creed || allegiance) && (
+            <Link
+              href="/play/creed"
+              className="hidden items-center gap-2 border border-panel-border bg-slate-950/60 px-3 py-1.5 clip-chevron-sm transition-colors hover:border-devotion/50 sm:flex"
+              title="Creed &amp; Allegiance"
+            >
+              {creed && (
+                <span className="flex items-center gap-1.5">
+                  <Flame className="size-3 text-devotion" strokeWidth={1.5} aria-hidden="true" />
+                  <span className="font-display text-[0.65rem] uppercase tracking-wide text-text">
+                    {creed.name}
+                  </span>
+                </span>
+              )}
+              {creed && allegiance && (
+                <span className="h-3 w-px bg-panel-border" aria-hidden="true" />
+              )}
+              {allegiance && (
+                <span
+                  className={`font-display text-[0.65rem] uppercase tracking-wide ${allegiance.textClass}`}
+                >
+                  {allegiance.label}
+                </span>
+              )}
+            </Link>
+          )}
           <div className="flex items-center gap-2 border border-panel-border bg-slate-950/60 px-3 py-1.5 clip-chevron-sm">
             <span className="font-display text-[0.65rem] uppercase tracking-wide text-text-faint">
               {governor?.callsign ?? colony?.name ?? 'Governor'}

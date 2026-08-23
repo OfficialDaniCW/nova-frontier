@@ -20,6 +20,7 @@
   --color-obsidian: var(--obsidian);
   --color-hollow: var(--hollow);
   --color-bloom: var(--bloom);
+  --color-devotion: var(--devotion);
   --color-text: var(--text);
   --color-text-dim: var(--text-dim);
   --color-text-faint: var(--text-faint);
@@ -77,6 +78,7 @@
   --obsidian: #fda4af;
   --hollow: #d8b4fe;
   --bloom: #9fef5b;
+  --devotion: #fbbf24;
   --text: #e2e8f0;
   --text-dim: #94a3b8;
   --text-faint: #64748b;
