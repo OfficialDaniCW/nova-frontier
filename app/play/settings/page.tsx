@@ -1,12 +1,14 @@
 import { headers } from 'next/headers'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
-import { Coffee, LogOut, User } from 'lucide-react'
+import { Coffee, LogOut, Megaphone, User } from 'lucide-react'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { governors } from '@/lib/db/schema'
 import { SignOutButton } from '@/components/game/sign-out-button'
 import { CoffeeButton, BUY_ME_A_COFFEE_URL } from '@/components/landing/coffee-button'
+import { SuggestionBoard } from '@/components/game/suggestion-board'
+import { listSuggestions } from '@/app/actions/suggestions'
 
 export default async function SettingsPage() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -17,6 +19,8 @@ export default async function SettingsPage() {
     .from(governors)
     .where(eq(governors.userId, session.user.id))
     .limit(1)
+
+  const suggestions = await listSuggestions()
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -75,6 +79,23 @@ export default async function SettingsPage() {
           <CoffeeButton variant="solid" />
         </div>
         <p className="font-mono text-[0.65rem] text-text-faint">{BUY_ME_A_COFFEE_URL}</p>
+      </section>
+
+      <section className="clip-chevron flex flex-col gap-4 border border-panel-border bg-slate-950/60 p-6">
+        <div className="flex items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center border border-concord/40 bg-concord/10 text-concord">
+            <Megaphone className="size-4" strokeWidth={1.5} aria-hidden="true" />
+          </span>
+          <div className="flex flex-col">
+            <h2 className="font-display text-sm font-bold uppercase tracking-wide text-text">
+              Propose an Idea
+            </h2>
+            <p className="font-mono text-[0.65rem] text-text-faint">
+              Suggest and vote on what gets built next
+            </p>
+          </div>
+        </div>
+        <SuggestionBoard suggestions={suggestions} />
       </section>
     </div>
   )

@@ -4,6 +4,7 @@ import { getPublicGameStats } from '@/lib/game/public-stats'
 import { LandingHero } from '@/components/landing/landing-hero'
 import { HowToPlay } from '@/components/landing/how-to-play'
 import { SystemsOverview } from '@/components/landing/systems-overview'
+import { PendingUpdates } from '@/components/landing/pending-updates'
 import { LandingFooter } from '@/components/landing/landing-footer'
 
 export default async function Home() {
@@ -22,6 +23,7 @@ export default async function Home() {
         <LandingHero isSignedIn={Boolean(session?.user)} stats={stats} />
         <HowToPlay />
         <SystemsOverview />
+        <PendingUpdates />
       </main>
       <div className="relative z-10">
         <LandingFooter />

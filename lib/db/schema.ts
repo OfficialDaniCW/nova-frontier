@@ -392,3 +392,31 @@ export const diplomaticRelations = pgTable(
     pairUnique: uniqueIndex('diplomatic_relations_pair_key').on(t.compactAId, t.compactBId),
   }),
 )
+
+// Community feature requests. Governors submit ideas, vote on others', and the
+// top vote-getters surface on the public landing page as "Pending Updates".
+export const featureSuggestions = pgTable('feature_suggestions', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull(),
+  authorName: text('authorName').notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'planned' | 'shipped' | 'declined'
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+})
+
+export const featureVotes = pgTable(
+  'feature_votes',
+  {
+    id: text('id').primaryKey(),
+    suggestionId: text('suggestionId').notNull(),
+    userId: text('userId').notNull(),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (t) => ({
+    suggestionUserUnique: uniqueIndex('feature_votes_suggestion_user_idx').on(
+      t.suggestionId,
+      t.userId,
+    ),
+  }),
+)
