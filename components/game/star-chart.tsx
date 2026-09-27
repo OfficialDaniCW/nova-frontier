@@ -3,13 +3,15 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { SatelliteDish, Loader2 } from 'lucide-react'
+import { SatelliteDish, Loader2, Map, LocateFixed } from 'lucide-react'
 import { Panel } from '@/components/game/panel'
 import { ChevronButton } from '@/components/game/chevron-button'
 import { InfoTooltip } from '@/components/game/info-tooltip'
 import { QuadrantMap } from '@/components/game/quadrant-map'
+import { GalaxyOverviewMap } from '@/components/game/galaxy-overview-map'
 import { SystemDetailPanel } from '@/components/game/system-detail-panel'
 import { FleetTransitList, type FleetTransitView } from '@/components/game/fleet-transit-list'
+import type { FleetMapView } from '@/components/game/galaxy-fleet-blip'
 import { QUADRANTS, getQuadrant, type QuadrantId } from '@/lib/game/galaxy'
 import { cn } from '@/lib/utils'
 import { deepScan } from '@/app/actions/fleet'
@@ -29,6 +31,7 @@ interface StarChartProps {
   resourceCaches: Record<string, { energy?: number; alloy?: number; crystal?: number }>
   shipRows: ShipRow[]
   fleets: FleetTransitView[]
+  fleetMapViews: FleetMapView[]
   currentUserId: string
   compactMateUserIds: string[]
 }
@@ -41,6 +44,7 @@ export function StarChart({
   resourceCaches,
   shipRows,
   fleets,
+  fleetMapViews,
   currentUserId,
   compactMateUserIds,
 }: StarChartProps) {
@@ -50,6 +54,7 @@ export function StarChart({
     () => systems.find((s) => s.id === homeSystemId)?.quadrant ?? 'auric',
     [systems, homeSystemId],
   )
+  const [mapMode, setMapMode] = useState<'overview' | 'quadrant'>('quadrant')
   const [activeQuadrant, setActiveQuadrant] = useState<QuadrantId>(homeQuadrant as QuadrantId)
   const [selectedSystemId, setSelectedSystemId] = useState<string | null>(homeSystemId)
   const [detail, setDetail] = useState<SystemDetail | null>(null)
@@ -95,32 +100,66 @@ export function StarChart({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Map mode toggle */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setMapMode('overview')}
+          className={cn(
+            'clip-chevron-sm flex items-center gap-1.5 border px-3 py-1.5 font-display text-[0.65rem] uppercase tracking-wide transition-colors',
+            mapMode === 'overview'
+              ? 'border-concord bg-concord/10 text-concord shadow-[0_0_12px_-2px_var(--concord)]'
+              : 'border-panel-border text-text-dim hover:text-foreground',
+          )}
+        >
+          <Map className="size-3.5" aria-hidden="true" />
+          Galaxy
+        </button>
+        <button
+          type="button"
+          onClick={() => setMapMode('quadrant')}
+          className={cn(
+            'clip-chevron-sm flex items-center gap-1.5 border px-3 py-1.5 font-display text-[0.65rem] uppercase tracking-wide transition-colors',
+            mapMode === 'quadrant'
+              ? 'border-concord bg-concord/10 text-concord shadow-[0_0_12px_-2px_var(--concord)]'
+              : 'border-panel-border text-text-dim hover:text-foreground',
+          )}
+        >
+          <LocateFixed className="size-3.5" aria-hidden="true" />
+          Quadrant
+        </button>
+      </div>
+
       {/* Quadrant tabs + deep scan */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {QUADRANTS.map((q) => {
-            const active = q.id === activeQuadrant
-            const charted = systems.filter((s) => s.quadrant === q.id).length
-            return (
-              <button
-                key={q.id}
-                type="button"
-                onClick={() => setActiveQuadrant(q.id)}
-                className={cn(
-                  'clip-chevron-sm flex items-center gap-2 border px-3 py-1.5 font-display text-[0.65rem] uppercase tracking-wide transition-colors',
-                  active
-                    ? 'border-primary bg-primary/10 text-primary shadow-[0_0_12px_-2px_var(--primary)]'
-                    : 'border-panel-border text-text-dim hover:text-foreground',
-                )}
-              >
-                {q.name}
-                <span className="font-mono text-[0.6rem] text-text-faint">
-                  {charted}/{quadrantTotals[q.id] ?? 0}
-                </span>
-              </button>
-            )
-          })}
-        </div>
+        {mapMode === 'quadrant' ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {QUADRANTS.map((q) => {
+              const active = q.id === activeQuadrant
+              const charted = systems.filter((s) => s.quadrant === q.id).length
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => setActiveQuadrant(q.id)}
+                  className={cn(
+                    'clip-chevron-sm flex items-center gap-2 border px-3 py-1.5 font-display text-[0.65rem] uppercase tracking-wide transition-colors',
+                    active
+                      ? 'border-primary bg-primary/10 text-primary shadow-[0_0_12px_-2px_var(--primary)]'
+                      : 'border-panel-border text-text-dim hover:text-foreground',
+                  )}
+                >
+                  {q.name}
+                  <span className="font-mono text-[0.6rem] text-text-faint">
+                    {charted}/{quadrantTotals[q.id] ?? 0}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <div />
+        )}
 
         <div className="flex items-center gap-2">
           <span className="font-mono text-[0.6rem] uppercase tracking-wide text-text-faint">
@@ -144,13 +183,26 @@ export function StarChart({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
         <Panel className="p-4">
-          <QuadrantMap
-            quadrant={quadrant}
-            systems={quadrantSystems}
-            totalInQuadrant={quadrantTotals[activeQuadrant] ?? 0}
-            selectedSystemId={selectedSystemId}
-            onSelect={selectSystem}
-          />
+          {mapMode === 'overview' ? (
+            <GalaxyOverviewMap
+              systems={systems}
+              fleets={fleetMapViews}
+              selectedSystemId={selectedSystemId}
+              onSelect={(systemId, quadrantId) => {
+                setActiveQuadrant(quadrantId)
+                selectSystem(systemId)
+              }}
+            />
+          ) : (
+            <QuadrantMap
+              quadrant={quadrant}
+              systems={quadrantSystems}
+              totalInQuadrant={quadrantTotals[activeQuadrant] ?? 0}
+              selectedSystemId={selectedSystemId}
+              onSelect={selectSystem}
+              fleets={fleetMapViews}
+            />
+          )}
         </Panel>
 
         <div className="lg:sticky lg:top-24 lg:self-start">

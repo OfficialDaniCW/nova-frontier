@@ -29,6 +29,29 @@ export default async function GalaxyPage() {
       shipCounts: f.shipCounts as Record<string, number>,
     }))
 
+  // Absolute galaxy coordinates for the fleet-blip overlay: origin is the
+  // player's home system, destination is the target sector's parent system.
+  const homeSystem = map.systems.find((s) => s.id === map.homeSystemId)
+  const fleetMapViews = activeFleets
+    .filter((f) => f.sectorId != null && homeSystem)
+    .map((f) => {
+      const sector = sectors.find((s) => s.id === f.sectorId)
+      const destSystem = sector?.systemId ? map.systems.find((s) => s.id === sector.systemId) : null
+      if (!destSystem || !homeSystem) return null
+      return {
+        id: f.id,
+        mission: f.mission,
+        sectorName: sector?.name ?? 'Deep space',
+        originX: homeSystem.positionX,
+        originY: homeSystem.positionY,
+        destX: destSystem.positionX,
+        destY: destSystem.positionY,
+        departedAt: f.departedAt.toISOString(),
+        arrivesAt: f.arrivesAt.toISOString(),
+      }
+    })
+    .filter((f): f is NonNullable<typeof f> => f !== null)
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div>
@@ -46,6 +69,7 @@ export default async function GalaxyPage() {
         resourceCaches={resourceCaches}
         shipRows={shipRows}
         fleets={fleetViews}
+        fleetMapViews={fleetMapViews}
         currentUserId={userId}
         compactMateUserIds={compactMateUserIds}
       />

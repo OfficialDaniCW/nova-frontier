@@ -14,6 +14,9 @@ import {
   systemDiscoveries,
   governors,
   doctrines,
+  disasterState,
+  disasters,
+  frontierEvents,
 } from '@/lib/db/schema'
 import {
   getBuildingDef,
@@ -21,8 +24,10 @@ import {
   getShipDef,
   getResourcePriorityDef,
   FACTION_DEFENSE_MULTIPLIER,
+  buildingCostAtLevel,
+  buildingTimeAtLevel,
 } from '@/lib/game/definitions'
-import { projectColonyResources } from '@/lib/game/resources'
+import { projectColonyResources, canAfford, subtractCost } from '@/lib/game/resources'
 import { getTraitDef, rollSurveyReward, planetTraitBonus } from '@/lib/game/galaxy'
 import { creedModifiers, allegianceCombatMultiplier } from '@/lib/game/creed'
 import {
@@ -33,6 +38,20 @@ import {
   RAID_LOOT_FRACTION,
   RAID_SHIELD_MS,
 } from '@/lib/game/combat'
+import {
+  rollDisasterKind,
+  disasterMitigationPct,
+  disasterStrikeChance,
+  severityForMitigatedLoss,
+  disasterDebuffForStrike,
+  DISASTER_SWEEP_INTERVAL_MS,
+  DISASTER_COOLDOWN_MS,
+} from '@/lib/game/disasters'
+import {
+  pickFrontierEvent,
+  FRONTIER_EVENT_MIN_INTERVAL_MS,
+  FRONTIER_EVENT_ROLL_CHANCE,
+} from '@/lib/game/frontier-events'
 
 const BLOOM_SPREAD_INTERVAL_MS = 3 * 60 * 1000
 const BLOOM_SPREAD_THRESHOLD = 55
@@ -62,12 +81,32 @@ export async function logComm(
 export async function settleColony(colonyId: string) {
   const [colony] = await db.select().from(colonies).where(eq(colonies.id, colonyId)).limit(1)
   if (!colony) return null
-  const projected = projectColonyResources(colony)
+  const now = new Date()
+  const projected = projectColonyResources(colony, now.getTime())
+
+  // Recovery debuff just lapsed — clear it and nudge the player once.
+  const debuffJustExpired =
+    colony.disasterDebuffUntil && new Date(colony.disasterDebuffUntil).getTime() <= now.getTime()
+
   const [updated] = await db
     .update(colonies)
-    .set({ ...projected, lastTickAt: new Date() })
+    .set({
+      ...projected,
+      lastTickAt: now,
+      ...(debuffJustExpired ? { disasterDebuffUntil: null, disasterDebuffPct: 0 } : {}),
+    })
     .where(eq(colonies.id, colonyId))
     .returning()
+
+  if (debuffJustExpired) {
+    await logComm(
+      colony.userId,
+      'disaster',
+      'success',
+      `${colony.name} has fully recovered from disaster damage — production is back to normal. Consider rebuilding your Contingency Bunker to soften the next strike.`,
+    )
+  }
+
   return updated
 }
 
@@ -79,9 +118,10 @@ async function resolveBuildingQueues(now: Date) {
 
   for (const b of due) {
     if (b.queuedLevel == null) continue
+    const completedLevel = b.queuedLevel
     await db
       .update(buildings)
-      .set({ level: b.queuedLevel, queuedLevel: null, queueStartedAt: null, queueEtaAt: null })
+      .set({ level: completedLevel, queuedLevel: null, queueStartedAt: null, queueEtaAt: null })
       .where(eq(buildings.id, b.id))
 
     // Recompute colony production rates from building levels.
@@ -90,10 +130,58 @@ async function resolveBuildingQueues(now: Date) {
     const def = getBuildingDef(b.buildingType)
     const message =
       def.id === 'monument'
-        ? `${def.name} construction complete — now level ${b.queuedLevel}. +${(def.scorePerLevel ?? 0) * b.queuedLevel} score.`
-        : `${def.name} construction complete — now level ${b.queuedLevel}.`
+        ? `${def.name} construction complete — now level ${completedLevel}. +${(def.scorePerLevel ?? 0) * completedLevel} score.`
+        : `${def.name} construction complete — now level ${completedLevel}.`
     await logComm(b.userId, 'construction', 'success', message)
+
+    if (b.autoQueue) {
+      await tryAutoQueueNext(b.colonyId, b.id, def, completedLevel)
+    }
   }
+}
+
+async function tryAutoQueueNext(
+  colonyId: string,
+  buildingRowId: string,
+  def: ReturnType<typeof getBuildingDef>,
+  completedLevel: number,
+) {
+  const targetLevel = completedLevel + 1
+  if (targetLevel > def.maxLevel) return
+
+  const siblingRows = await db.select().from(buildings).where(eq(buildings.colonyId, colonyId))
+  if (siblingRows.some((row) => row.queuedLevel != null)) return
+
+  const [colony] = await db.select().from(colonies).where(eq(colonies.id, colonyId)).limit(1)
+  if (!colony) return
+
+  const cost = buildingCostAtLevel(def, targetLevel)
+  const projected = projectColonyResources(colony)
+  if (!canAfford(projected, cost)) return
+
+  const remaining = subtractCost(projected, cost)
+  await db
+    .update(colonies)
+    .set({ ...remaining, lastTickAt: new Date() })
+    .where(eq(colonies.id, colony.id))
+
+  const now = new Date()
+  const etaMs = buildingTimeAtLevel(def, targetLevel) * 1000
+  await db
+    .update(buildings)
+    .set({
+      queuedLevel: targetLevel,
+      queueStartedAt: now,
+      queueEtaAt: new Date(now.getTime() + etaMs),
+    })
+    .where(eq(buildings.id, buildingRowId))
+
+  await logComm(
+    colony.userId,
+    'construction',
+    'info',
+    `${def.name} auto-queued to level ${targetLevel}.`,
+  )
 }
 
 export async function recomputeColonyRates(colonyId: string) {
@@ -1093,6 +1181,150 @@ async function resolveBloomSpread(now: Date) {
   }
 }
 
+const DISASTER_STATE_ID = 'global'
+
+/**
+ * Throttled sweep of every colony for natural disasters. Separate from the
+ * Bloom faction system: this is an automatic, colony-local survival threat
+ * mitigated preventatively (Contingency Bunker, Disaster Forecasting,
+ * Shield Generator / Sensor Array affinity), so there is no player action
+ * to trigger or dodge it in the moment.
+ */
+async function resolveDisasters(now: Date) {
+  const [state] = await db
+    .select()
+    .from(disasterState)
+    .where(eq(disasterState.id, DISASTER_STATE_ID))
+    .limit(1)
+  if (state && now.getTime() - state.lastRunAt.getTime() < DISASTER_SWEEP_INTERVAL_MS) return
+
+  const allColonies = await db.select().from(colonies)
+  const eligible = allColonies.filter(
+    (c) => !c.lastDisasterAt || now.getTime() - c.lastDisasterAt.getTime() >= DISASTER_COOLDOWN_MS,
+  )
+
+  for (const colony of eligible) {
+    const [forecastingRow] = await db
+      .select({ level: research.level })
+      .from(research)
+      .where(and(eq(research.userId, colony.userId), eq(research.techId, 'disaster-forecasting')))
+      .limit(1)
+    const chance = disasterStrikeChance(forecastingRow?.level ?? 0)
+    if (Math.random() > chance) continue
+
+    const def = rollDisasterKind()
+    const settled = await settleColony(colony.id)
+    if (!settled) continue
+
+    const [bunkerRow] = await db
+      .select({ level: buildings.level })
+      .from(buildings)
+      .where(and(eq(buildings.colonyId, colony.id), eq(buildings.buildingType, 'contingency-bunker')))
+      .limit(1)
+    let affinityLevel = 0
+    if (def.affinityBuildingId) {
+      const [affinityRow] = await db
+        .select({ level: buildings.level })
+        .from(buildings)
+        .where(and(eq(buildings.colonyId, colony.id), eq(buildings.buildingType, def.affinityBuildingId)))
+        .limit(1)
+      affinityLevel = affinityRow?.level ?? 0
+    }
+    const mitigation = disasterMitigationPct(bunkerRow?.level ?? 0, affinityLevel)
+    const survive = 1 - mitigation
+
+    const energyLost = Math.floor(settled.energy * (def.damage.energyPct ?? 0) * survive)
+    const alloyLost = Math.floor(settled.alloy * (def.damage.alloyPct ?? 0) * survive)
+    const crystalLost = Math.floor(settled.crystal * (def.damage.crystalPct ?? 0) * survive)
+    const populationLost = Math.floor(settled.population * (def.damage.populationPct ?? 0) * survive)
+
+    await db
+      .update(colonies)
+      .set({
+        energy: Math.max(0, settled.energy - energyLost),
+        alloy: Math.max(0, settled.alloy - alloyLost),
+        crystal: Math.max(0, settled.crystal - crystalLost),
+        population: Math.max(0, settled.population - populationLost),
+        lastDisasterAt: now,
+      })
+      .where(eq(colonies.id, colony.id))
+
+    const totalLossFraction =
+      (def.damage.energyPct ?? 0) * survive +
+      (def.damage.alloyPct ?? 0) * survive +
+      (def.damage.crystalPct ?? 0) * survive +
+      (def.damage.populationPct ?? 0) * survive
+    const severity = severityForMitigatedLoss(totalLossFraction)
+    const { pct: debuffPct, durationMs: debuffMs } = disasterDebuffForStrike(severity, mitigation)
+    const debuffUntil = new Date(now.getTime() + debuffMs)
+
+    await db
+      .update(colonies)
+      .set({ disasterDebuffUntil: debuffUntil, disasterDebuffPct: debuffPct })
+      .where(eq(colonies.id, colony.id))
+
+    const summary = `${def.name} struck ${colony.name} — lost ${energyLost} Energy, ${alloyLost} Alloy, ${crystalLost} Crystal, ${populationLost} population. Production down ${Math.round(debuffPct * 100)}% while recovering.`
+
+    await db.insert(disasters).values({
+      id: newId('disaster'),
+      userId: colony.userId,
+      colonyId: colony.id,
+      kind: def.id,
+      severity,
+      summary,
+      energyLost,
+      alloyLost,
+      crystalLost,
+      populationLost,
+      mitigatedPct: mitigation,
+    })
+
+    await logComm(
+      colony.userId,
+      'disaster',
+      severity === 'severe' ? 'danger' : severity === 'moderate' ? 'warning' : 'info',
+      summary + (mitigation > 0 ? ` (${Math.round(mitigation * 100)}% mitigated)` : ''),
+    )
+  }
+
+  if (state) {
+    await db.update(disasterState).set({ lastRunAt: now }).where(eq(disasterState.id, DISASTER_STATE_ID))
+  } else {
+    await db.insert(disasterState).values({ id: DISASTER_STATE_ID, lastRunAt: now })
+  }
+}
+
+async function resolveFrontierEvents(now: Date) {
+  const allColonies = await db.select().from(colonies)
+  const eligible = allColonies.filter(
+    (c) => !c.lastFrontierEventAt || now.getTime() - c.lastFrontierEventAt.getTime() >= FRONTIER_EVENT_MIN_INTERVAL_MS,
+  )
+
+  for (const colony of eligible) {
+    if (Math.random() > FRONTIER_EVENT_ROLL_CHANCE) continue
+
+    const [existingPending] = await db
+      .select({ id: frontierEvents.id })
+      .from(frontierEvents)
+      .where(and(eq(frontierEvents.colonyId, colony.id), eq(frontierEvents.status, 'pending')))
+      .limit(1)
+    if (existingPending) continue
+
+    const def = pickFrontierEvent()
+
+    await db.insert(frontierEvents).values({
+      id: newId('event'),
+      userId: colony.userId,
+      colonyId: colony.id,
+      eventId: def.id,
+    })
+
+    await db.update(colonies).set({ lastFrontierEventAt: now }).where(eq(colonies.id, colony.id))
+
+    await logComm(colony.userId, 'event', 'info', `${def.title}: a new transmission awaits your response.`)
+  }
+}
+
 /**
  * Single entry point for all game-state resolution. Called by the cron route
  * and can also be invoked opportunistically from server actions before a
@@ -1105,6 +1337,8 @@ export async function runTick() {
   await resolveShipQueues(now)
   await resolveFleetArrivals(now)
   await resolveBloomSpread(now)
+  await resolveDisasters(now)
+  await resolveFrontierEvents(now)
   await resolveMarketOrders()
   return { ranAt: now.toISOString() }
 }

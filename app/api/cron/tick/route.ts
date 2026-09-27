@@ -1,4 +1,5 @@
 import { runTick } from '@/lib/game/tick'
+import { closeSeasonIfDue } from '@/lib/game/seasons'
 import { NextResponse } from 'next/server'
 
 export const maxDuration = 30
@@ -10,5 +11,6 @@ export async function GET(request: Request) {
   }
 
   const result = await runTick()
-  return NextResponse.json(result)
+  const season = await closeSeasonIfDue()
+  return NextResponse.json({ ...result, season })
 }

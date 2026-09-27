@@ -29,6 +29,7 @@ export interface BuildingCardDef {
   cost: { energy?: number; alloy?: number; crystal?: number }
   buildTimeSec: number
   maxLevel: number
+  autoQueue?: boolean
 }
 
 const BUILDING_ICONS: Record<string, LucideIcon> = {
@@ -50,9 +51,16 @@ interface BuildingCardProps {
   queueActive: boolean
   affordable: boolean
   onUpgrade?: (id: string) => void
+  onToggleAutoQueue?: (id: string, enabled: boolean) => void
 }
 
-export function BuildingCard({ building, queueActive, affordable, onUpgrade }: BuildingCardProps) {
+export function BuildingCard({
+  building,
+  queueActive,
+  affordable,
+  onUpgrade,
+  onToggleAutoQueue,
+}: BuildingCardProps) {
   const Icon = BUILDING_ICONS[building.id] ?? Building2
   const atMax = building.level >= building.maxLevel
   const locked = atMax || !affordable || queueActive
@@ -124,6 +132,20 @@ export function BuildingCard({ building, queueActive, affordable, onUpgrade }: B
       >
         Upgrade
       </ChevronButton>
+
+      {!atMax && onToggleAutoQueue && (
+        <label className="flex cursor-pointer items-center justify-between gap-2 border-t border-panel-border/60 pt-3">
+          <span className="font-mono text-[0.65rem] uppercase tracking-wide text-text-faint">
+            Auto-queue next level
+          </span>
+          <input
+            type="checkbox"
+            checked={Boolean(building.autoQueue)}
+            onChange={(e) => onToggleAutoQueue(building.id, e.target.checked)}
+            className="size-4 shrink-0 accent-concord"
+          />
+        </label>
+      )}
     </Panel>
   )
 }

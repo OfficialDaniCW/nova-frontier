@@ -53,6 +53,23 @@ export async function upgradeResearch(techId: string) {
     throw new Error('Prerequisite building level not met')
   }
 
+  if (def.exclusiveGroup) {
+    const siblingIds = RESEARCH_DEFS.filter(
+      (r) => r.exclusiveGroup === def.exclusiveGroup && r.id !== def.id,
+    ).map((r) => r.id)
+    if (siblingIds.length > 0) {
+      const siblingRows = await db
+        .select()
+        .from(research)
+        .where(eq(research.governorId, governor.id))
+      const lockedBy = siblingRows.find((r) => siblingIds.includes(r.techId) && r.level > 0)
+      if (lockedBy) {
+        const lockedDef = getResearchDef(lockedBy.techId)
+        throw new Error(`Doctrine already committed to ${lockedDef.name}`)
+      }
+    }
+  }
+
   let [row] = await db
     .select()
     .from(research)

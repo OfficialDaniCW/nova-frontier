@@ -246,23 +246,54 @@ const HowToTab = (
 
     <section>
       <h3 className="font-display text-sm font-semibold uppercase tracking-wide text-concord">
-        7. Comm Log &amp; Leaderboard
+        7. Comm Log, Digest &amp; Leaderboard
       </h3>
       <p className="mt-2 font-mono text-xs leading-relaxed text-text-dim">
-        Every construction, research, combat, and trade event you trigger is logged in Comms —
-        it&apos;s the fastest way to see what actually happened while you were away. The Leaderboard
-        ranks governors by score: sectors claimed, combat wins, and research level all count.
+        Every construction, research, combat, disaster, and trade event you trigger is logged in
+        Comms — it&apos;s the fastest way to see what actually happened while you were away. The
+        Digest card summarizes everything from the last 12 hours so you never have to scroll the
+        full log. The Leaderboard ranks governors by score: sectors claimed, combat wins, and
+        research level all count.
       </p>
     </section>
 
-    <section className="border-t border-panel-border/60 pt-4">
-      <h3 className="font-display text-sm font-semibold uppercase tracking-wide text-text-faint">
-        Coming to this Epoch
+    <section>
+      <h3 className="font-display text-sm font-semibold uppercase tracking-wide text-concord">
+        8. Hazards &amp; Frontier Events
       </h3>
-      <p className="mt-2 font-mono text-xs leading-relaxed text-text-faint">
-        Compacts (player alliances), the Monument vanity building, a Resource Priority dial, and
-        the full adaptive Bloom threat — spread, incursions, and cleansing operations — are on the
-        build roadmap. The Bloom is currently tracked only as a flavor intensity field per sector.
+      <p className="mt-2 font-mono text-xs leading-relaxed text-text-dim">
+        Solar Flares, Tectonic Quakes, Xeno Plagues, and Meteor Strikes hit colonies at random
+        (throttled per colony, roughly every 20 minutes at minimum) and dent resources, population,
+        and production for a couple of hours afterward. Build a Contingency Bunker and research
+        Disaster Forecasting to soften the blow — check the Hazards panel on your colony page for
+        your current resilience and a recent-events log. Separately, Frontier Events are narrative
+        choices (like the Nomad Convoy) that pop up periodically and ask you to pick a response with
+        real trade-offs.
+      </p>
+    </section>
+
+    <section>
+      <h3 className="font-display text-sm font-semibold uppercase tracking-wide text-concord">
+        9. Doctrines &amp; Creeds
+      </h3>
+      <p className="mt-2 font-mono text-xs leading-relaxed text-text-dim">
+        Adopt one of four spiritual Creeds — Ember Communion, Void Choir, Verdant Path, or Iron
+        Creed — and spend Devotion on a tree of Doctrines for permanent multiplicative bonuses to
+        production, fleet strength, or Bloom resistance. This is independent of political
+        Allegiance to Concord, Obsidian, Kessler, or Hollow, which grants its own passive plus
+        Zeal/Dissent combat modifiers.
+      </p>
+    </section>
+
+    <section>
+      <h3 className="font-display text-sm font-semibold uppercase tracking-wide text-concord">
+        10. Seasons &amp; Automation
+      </h3>
+      <p className="mt-2 font-mono text-xs leading-relaxed text-text-dim">
+        The Leaderboard resets on a 7-day Season cycle — your final rank each Season earns a
+        lasting title. To save on micromanagement, toggle Auto-Queue on any building to have it
+        automatically restart its own upgrade the moment resources allow, without you needing to
+        return and click Upgrade every time.
       </p>
     </section>
   </div>
