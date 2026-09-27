@@ -187,6 +187,9 @@ export function SystemDetailPanel({
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      <span className="rounded-sm border border-panel-border px-1 py-0.5 font-mono text-[0.5rem] uppercase tracking-wide text-text-faint">
+                        Orbit {(planet.slot + 1).toString().padStart(2, '0')}
+                      </span>
                       {planet.traits.map((t) => {
                         const trait = getPlanetTrait(t)
                         if (!trait) return null

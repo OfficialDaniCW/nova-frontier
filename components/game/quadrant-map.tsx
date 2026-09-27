@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { getStarType, type QuadrantDef } from '@/lib/game/galaxy'
 import type { VisibleSystem } from '@/lib/game/discovery'
+import { FleetBlip, type FleetMapView } from '@/components/game/galaxy-fleet-blip'
 
 interface QuadrantMapProps {
   quadrant: QuadrantDef
@@ -11,6 +12,7 @@ interface QuadrantMapProps {
   totalInQuadrant: number
   selectedSystemId: string | null
   onSelect: (systemId: string) => void
+  fleets?: FleetMapView[]
 }
 
 /**
@@ -23,10 +25,16 @@ export function QuadrantMap({
   totalInQuadrant,
   selectedSystemId,
   onSelect,
+  fleets = [],
 }: QuadrantMapProps) {
   const { x0, x1, y0, y1 } = quadrant.coordRange
   const spanX = x1 - x0 || 1
   const spanY = y1 - y0 || 1
+
+  const toPercent = (x: number, y: number) => ({
+    left: ((x - x0) / spanX) * 100,
+    top: ((y - y0) / spanY) * 100,
+  })
 
   const nodes = useMemo(
     () =>
@@ -37,6 +45,12 @@ export function QuadrantMap({
       })),
     [systems, x0, y0, spanX, spanY],
   )
+
+  // Only render fleets that pass through this quadrant's coordinate box.
+  const visibleFleets = fleets.filter((f) => {
+    const inBox = (x: number, y: number) => x >= x0 - 5 && x <= x1 + 5 && y >= y0 - 5 && y <= y1 + 5
+    return inBox(f.originX, f.originY) || inBox(f.destX, f.destY)
+  })
 
   const discoveredCount = systems.length
 
@@ -129,6 +143,10 @@ export function QuadrantMap({
             </button>
           )
         })}
+
+        {visibleFleets.map((fleet) => (
+          <FleetBlip key={fleet.id} fleet={fleet} toPercent={toPercent} />
+        ))}
       </div>
 
       {/* Legend */}
