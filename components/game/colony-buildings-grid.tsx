@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { BuildingCard, type BuildingCardDef } from '@/components/game/building-card'
 import { QueuePanel } from '@/components/game/queue-panel'
-import { upgradeBuilding } from '@/app/actions/colony'
+import { upgradeBuilding, toggleAutoQueue } from '@/app/actions/colony'
 import { BUILDING_DEFS, buildingCostAtLevel, buildingTimeAtLevel } from '@/lib/game/definitions'
 import { canAfford } from '@/lib/game/resources'
 
@@ -16,6 +16,7 @@ interface BuildingRow {
   queuedLevel: number | null
   queueStartedAt: string | null
   queueEtaAt: string | null
+  autoQueue?: boolean
 }
 
 interface ColonyBuildingsGridProps {
@@ -42,6 +43,16 @@ export function ColonyBuildingsGrid({ buildingRows, resources }: ColonyBuildings
       toast.error(err instanceof Error ? err.message : 'Failed to queue upgrade')
     } finally {
       setPending(null)
+    }
+  }
+
+  async function handleToggleAutoQueue(buildingType: string, enabled: boolean) {
+    try {
+      await toggleAutoQueue(buildingType, enabled)
+      toast.success(enabled ? 'Auto-queue enabled' : 'Auto-queue disabled')
+      startTransition(() => router.refresh())
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update auto-queue')
     }
   }
 
@@ -78,6 +89,7 @@ export function ColonyBuildingsGrid({ buildingRows, resources }: ColonyBuildings
               : undefined,
             storageCapacity: def.storagePerLevel ? def.storagePerLevel * level : undefined,
             scoreValue: def.scorePerLevel ? def.scorePerLevel * level : undefined,
+            autoQueue: row?.autoQueue,
           }
 
           return (
@@ -87,6 +99,7 @@ export function ColonyBuildingsGrid({ buildingRows, resources }: ColonyBuildings
               queueActive={queueActive || pending === def.id}
               affordable={affordable}
               onUpgrade={handleUpgrade}
+              onToggleAutoQueue={row ? handleToggleAutoQueue : undefined}
             />
           )
         })}

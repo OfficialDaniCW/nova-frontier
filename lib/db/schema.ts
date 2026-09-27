@@ -81,10 +81,11 @@ export const governors = pgTable('governors', {
   creedId: text('creedId'),
   creedSetAt: timestamp('creedSetAt'),
   title: text('title'),
+  lastDigestViewedAt: timestamp('lastDigestViewedAt'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   })
-
-export const colonies = pgTable('colonies', {
+  
+  export const colonies = pgTable('colonies', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
   governorId: text('governorId').notNull(),
@@ -125,9 +126,10 @@ export const buildings = pgTable('buildings', {
   queuedLevel: integer('queuedLevel'),
   queueStartedAt: timestamp('queueStartedAt'),
   queueEtaAt: timestamp('queueEtaAt'),
-})
-
-export const research = pgTable('research', {
+  autoQueue: boolean('autoQueue').notNull().default(false),
+  })
+  
+  export const research = pgTable('research', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
   governorId: text('governorId').notNull(),

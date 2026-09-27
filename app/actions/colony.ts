@@ -77,6 +77,23 @@ export async function upgradeBuilding(buildingType: string) {
   return { ok: true }
 }
 
+export async function toggleAutoQueue(buildingType: string, enabled: boolean) {
+  const userId = await getUserId()
+  await runTick()
+
+  const [colony] = await db.select().from(colonies).where(eq(colonies.userId, userId)).limit(1)
+  if (!colony) throw new Error('No colony found')
+
+  const buildingRows = await db.select().from(buildings).where(eq(buildings.colonyId, colony.id))
+  const row = buildingRows.find((b) => b.buildingType === buildingType)
+  if (!row) throw new Error('Building not found')
+
+  await db.update(buildings).set({ autoQueue: enabled }).where(eq(buildings.id, row.id))
+
+  revalidatePath('/play/colony')
+  return { ok: true }
+}
+
 export async function setResourcePriority(priority: ResourcePriority) {
   const userId = await getUserId()
   await runTick()

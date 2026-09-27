@@ -35,6 +35,7 @@ export default async function ColonyPage({
     queuedLevel: row.queuedLevel,
     queueStartedAt: row.queueStartedAt ? row.queueStartedAt.toISOString() : null,
     queueEtaAt: row.queueEtaAt ? row.queueEtaAt.toISOString() : null,
+    autoQueue: row.autoQueue,
   }))
 
   return (

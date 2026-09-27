@@ -24,8 +24,10 @@ import {
   getShipDef,
   getResourcePriorityDef,
   FACTION_DEFENSE_MULTIPLIER,
+  buildingCostAtLevel,
+  buildingTimeAtLevel,
 } from '@/lib/game/definitions'
-import { projectColonyResources } from '@/lib/game/resources'
+import { projectColonyResources, canAfford, subtractCost } from '@/lib/game/resources'
 import { getTraitDef, rollSurveyReward, planetTraitBonus } from '@/lib/game/galaxy'
 import { creedModifiers, allegianceCombatMultiplier } from '@/lib/game/creed'
 import {
@@ -116,9 +118,10 @@ async function resolveBuildingQueues(now: Date) {
 
   for (const b of due) {
     if (b.queuedLevel == null) continue
+    const completedLevel = b.queuedLevel
     await db
       .update(buildings)
-      .set({ level: b.queuedLevel, queuedLevel: null, queueStartedAt: null, queueEtaAt: null })
+      .set({ level: completedLevel, queuedLevel: null, queueStartedAt: null, queueEtaAt: null })
       .where(eq(buildings.id, b.id))
 
     // Recompute colony production rates from building levels.
@@ -127,10 +130,58 @@ async function resolveBuildingQueues(now: Date) {
     const def = getBuildingDef(b.buildingType)
     const message =
       def.id === 'monument'
-        ? `${def.name} construction complete — now level ${b.queuedLevel}. +${(def.scorePerLevel ?? 0) * b.queuedLevel} score.`
-        : `${def.name} construction complete — now level ${b.queuedLevel}.`
+        ? `${def.name} construction complete — now level ${completedLevel}. +${(def.scorePerLevel ?? 0) * completedLevel} score.`
+        : `${def.name} construction complete — now level ${completedLevel}.`
     await logComm(b.userId, 'construction', 'success', message)
+
+    if (b.autoQueue) {
+      await tryAutoQueueNext(b.colonyId, b.id, def, completedLevel)
+    }
   }
+}
+
+async function tryAutoQueueNext(
+  colonyId: string,
+  buildingRowId: string,
+  def: ReturnType<typeof getBuildingDef>,
+  completedLevel: number,
+) {
+  const targetLevel = completedLevel + 1
+  if (targetLevel > def.maxLevel) return
+
+  const siblingRows = await db.select().from(buildings).where(eq(buildings.colonyId, colonyId))
+  if (siblingRows.some((row) => row.queuedLevel != null)) return
+
+  const [colony] = await db.select().from(colonies).where(eq(colonies.id, colonyId)).limit(1)
+  if (!colony) return
+
+  const cost = buildingCostAtLevel(def, targetLevel)
+  const projected = projectColonyResources(colony)
+  if (!canAfford(projected, cost)) return
+
+  const remaining = subtractCost(projected, cost)
+  await db
+    .update(colonies)
+    .set({ ...remaining, lastTickAt: new Date() })
+    .where(eq(colonies.id, colony.id))
+
+  const now = new Date()
+  const etaMs = buildingTimeAtLevel(def, targetLevel) * 1000
+  await db
+    .update(buildings)
+    .set({
+      queuedLevel: targetLevel,
+      queueStartedAt: now,
+      queueEtaAt: new Date(now.getTime() + etaMs),
+    })
+    .where(eq(buildings.id, buildingRowId))
+
+  await logComm(
+    colony.userId,
+    'construction',
+    'info',
+    `${def.name} auto-queued to level ${targetLevel}.`,
+  )
 }
 
 export async function recomputeColonyRates(colonyId: string) {
