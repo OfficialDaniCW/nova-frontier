@@ -80,8 +80,9 @@ export const governors = pgTable('governors', {
   allegianceSetAt: timestamp('allegianceSetAt'),
   creedId: text('creedId'),
   creedSetAt: timestamp('creedSetAt'),
+  title: text('title'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
-})
+  })
 
 export const colonies = pgTable('colonies', {
   id: text('id').primaryKey(),
@@ -109,6 +110,9 @@ export const colonies = pgTable('colonies', {
   lastTickAt: timestamp('lastTickAt').notNull().defaultNow(),
   lastDeepScanAt: timestamp('lastDeepScanAt'),
   lastDisasterAt: timestamp('lastDisasterAt'), // per-colony natural-disaster cooldown
+  disasterDebuffUntil: timestamp('disasterDebuffUntil'), // production penalty window after a strike
+  disasterDebuffPct: doublePrecision('disasterDebuffPct').notNull().default(0), // fraction shaved off all rates while active
+  lastFrontierEventAt: timestamp('lastFrontierEventAt'), // per-colony frontier-event cooldown
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
@@ -297,7 +301,49 @@ export const disasters = pgTable('disasters', {
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
-export const commLog = pgTable('comm_log', {
+export const frontierEvents = pgTable('frontier_events', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull(),
+  colonyId: text('colonyId').notNull(),
+  eventId: text('eventId').notNull(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'resolved'
+  choiceId: text('choiceId'),
+  outcomeSummary: text('outcomeSummary'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  resolvedAt: timestamp('resolvedAt'),
+  })
+
+  export const seasons = pgTable('seasons', {
+  id: text('id').primaryKey(),
+  number: integer('number').notNull(),
+  startedAt: timestamp('startedAt').notNull().defaultNow(),
+  endedAt: timestamp('endedAt'),
+  })
+
+  export const seasonBaselines = pgTable('season_baselines', {
+  id: text('id').primaryKey(),
+  seasonId: text('seasonId').notNull(),
+  userId: text('userId').notNull(),
+  governorId: text('governorId').notNull(),
+  baselineScore: integer('baselineScore').notNull().default(0),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  })
+
+  export const seasonResults = pgTable('season_results', {
+  id: text('id').primaryKey(),
+  seasonId: text('seasonId').notNull(),
+  userId: text('userId').notNull(),
+  governorId: text('governorId').notNull(),
+  callsign: text('callsign').notNull(),
+  score: integer('score').notNull().default(0),
+  seasonScore: integer('seasonScore').notNull().default(0),
+  rank: integer('rank').notNull(),
+  compactId: text('compactId'),
+  titleAwarded: text('titleAwarded'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  })
+
+  export const commLog = pgTable('comm_log', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
   category: text('category').notNull(), // 'construction' | 'research' | 'fleet' | 'combat' | 'trade' | 'system' | 'relay' | 'diplomacy'

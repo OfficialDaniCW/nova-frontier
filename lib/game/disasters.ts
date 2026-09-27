@@ -137,3 +137,30 @@ export function severityForMitigatedLoss(totalLossFraction: number): 'minor' | '
   if (totalLossFraction >= 0.1) return 'moderate'
   return 'minor'
 }
+
+// --- Recovery arc (post-strike production debuff) ------------------------
+
+/** Base recovery-debuff window before any bunker mitigation. */
+export const DISASTER_DEBUFF_BASE_DURATION_MS = 2 * 60 * 60 * 1000 // 2 hours
+
+/** Base fraction shaved off all resource rates while recovering, by severity. */
+export const DISASTER_DEBUFF_BASE_PCT: Record<'minor' | 'moderate' | 'severe', number> = {
+  minor: 0.1,
+  moderate: 0.15,
+  severe: 0.2,
+}
+
+/**
+ * A well-stocked Contingency Bunker shortens and softens the recovery arc —
+ * on top of the upfront damage mitigation it already provides. Scales with
+ * the same mitigation fraction so a maxed bunker nearly halves the debuff.
+ */
+export function disasterDebuffForStrike(
+  severity: 'minor' | 'moderate' | 'severe',
+  mitigationPct: number,
+) {
+  const softenFactor = 1 - mitigationPct * 0.5
+  const pct = DISASTER_DEBUFF_BASE_PCT[severity] * softenFactor
+  const durationMs = DISASTER_DEBUFF_BASE_DURATION_MS * softenFactor
+  return { pct, durationMs }
+}

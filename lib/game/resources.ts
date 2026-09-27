@@ -3,12 +3,24 @@ import type { Cost } from './definitions'
 
 type Colony = typeof colonies.$inferSelect
 
+/**
+ * A colony recovering from a natural disaster produces at a reduced rate
+ * until `disasterDebuffUntil` passes. Applied at read time (rather than
+ * baked into the stored rate columns) so it never goes stale.
+ */
+export function activeDisasterDebuffPct(colony: Colony, atMs: number = Date.now()): number {
+  if (!colony.disasterDebuffUntil) return 0
+  if (new Date(colony.disasterDebuffUntil).getTime() <= atMs) return 0
+  return colony.disasterDebuffPct
+}
+
 /** Compute a colony's current resource totals, projecting production since lastTickAt. */
 export function projectColonyResources(colony: Colony, atMs: number = Date.now()) {
   const elapsedSec = Math.max(0, (atMs - new Date(colony.lastTickAt).getTime()) / 1000)
-  const energy = Math.min(colony.energyCap, colony.energy + colony.energyRate * elapsedSec)
-  const alloy = Math.min(colony.alloyCap, colony.alloy + colony.alloyRate * elapsedSec)
-  const crystal = Math.min(colony.crystalCap, colony.crystal + colony.crystalRate * elapsedSec)
+  const debuff = 1 - activeDisasterDebuffPct(colony, atMs)
+  const energy = Math.min(colony.energyCap, colony.energy + colony.energyRate * debuff * elapsedSec)
+  const alloy = Math.min(colony.alloyCap, colony.alloy + colony.alloyRate * debuff * elapsedSec)
+  const crystal = Math.min(colony.crystalCap, colony.crystal + colony.crystalRate * debuff * elapsedSec)
   const devotion = Math.min(colony.devotionCap, colony.devotion + colony.devotionRate * elapsedSec)
   return { energy, alloy, crystal, devotion }
 }

@@ -1,9 +1,18 @@
 'use client'
 
+import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Panel } from '@/components/game/panel'
 import { ChevronButton } from '@/components/game/chevron-button'
 import { ResourceCostRow } from '@/components/game/resource-pill'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import type { Cost } from '@/lib/game/definitions'
 
 export interface ResearchCardDef {
@@ -19,6 +28,10 @@ export interface ResearchCardDef {
   unlocked: boolean
   requiredLevel: number
   requiredBuildingName: string
+  /** Name of the doctrine this tech is mutually exclusive with, if committed to. */
+  lockedByDoctrine?: string
+  /** True the first time this doctrine tech is queued (level 0 -> 1); asks for confirmation. */
+  isFirstDoctrineCommit?: boolean
 }
 
 interface ResearchCardProps {
@@ -30,14 +43,25 @@ interface ResearchCardProps {
 
 export function ResearchCard({ tech, queueActive, affordable, onResearch }: ResearchCardProps) {
   const Icon = tech.icon
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const atMax = tech.level >= tech.maxLevel
-  const locked = !tech.unlocked || atMax || !affordable || queueActive
+  const doctrineLocked = Boolean(tech.lockedByDoctrine)
+  const locked = !tech.unlocked || atMax || !affordable || queueActive || doctrineLocked
 
   let lockedReason: string | undefined
-  if (!tech.unlocked) lockedReason = `Requires ${tech.requiredBuildingName} LVL ${tech.requiredLevel}.`
+  if (doctrineLocked) lockedReason = `Doctrine committed to ${tech.lockedByDoctrine}.`
+  else if (!tech.unlocked) lockedReason = `Requires ${tech.requiredBuildingName} LVL ${tech.requiredLevel}.`
   else if (atMax) lockedReason = 'Maximum level reached.'
   else if (queueActive) lockedReason = 'Research queue occupied.'
   else if (!affordable) lockedReason = 'Insufficient resources.'
+
+  function handleClick() {
+    if (tech.isFirstDoctrineCommit) {
+      setConfirmOpen(true)
+      return
+    }
+    onResearch?.(tech.id)
+  }
 
   return (
     <Panel grid className="flex flex-col gap-4 p-5">
@@ -68,11 +92,39 @@ export function ResearchCard({ tech, queueActive, affordable, onResearch }: Rese
         variant="crystal"
         locked={locked}
         lockedReason={lockedReason}
-        onClick={() => onResearch?.(tech.id)}
+        onClick={handleClick}
         className="w-full"
       >
         Research
       </ChevronButton>
+
+      {tech.isFirstDoctrineCommit && (
+        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Commit to {tech.name}?</DialogTitle>
+              <DialogDescription>
+                This is a permanent doctrine choice. Once queued, you will be locked out of any
+                mutually exclusive doctrine for this governor for the rest of the game.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <ChevronButton variant="obsidian" onClick={() => setConfirmOpen(false)}>
+                Cancel
+              </ChevronButton>
+              <ChevronButton
+                variant="crystal"
+                onClick={() => {
+                  setConfirmOpen(false)
+                  onResearch?.(tech.id)
+                }}
+              >
+                Commit
+              </ChevronButton>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Panel>
   )
 }

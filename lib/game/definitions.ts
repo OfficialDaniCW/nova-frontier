@@ -20,6 +20,10 @@ import {
   Flame,
   ShieldAlert,
   CloudLightning,
+  Crosshair,
+  ShieldHalf,
+  Drill,
+  Gauge,
 } from 'lucide-react'
 
 export type Resource = 'energy' | 'alloy' | 'crystal'
@@ -238,6 +242,12 @@ export interface ResearchDef {
   requiresBuilding: { id: string; level: number }
   /** Effect summary shown in UI. */
   effect: string
+  /**
+   * Techs sharing an `exclusiveGroup` are mutually exclusive doctrine
+   * choices: leveling one past 0 permanently locks the others in the same
+   * group for that governor.
+   */
+  exclusiveGroup?: string
 }
 
 export const RESEARCH_DEFS: ResearchDef[] = [
@@ -396,6 +406,66 @@ export const RESEARCH_DEFS: ResearchDef[] = [
     timeGrowth: 1.3,
     requiresBuilding: { id: 'sensor-array', level: 1 },
     effect: '-3% chance of a natural disaster striking per level',
+  },
+  {
+    id: 'doctrine-assault',
+    name: 'Doctrine: Assault',
+    description:
+      'Commit the fleet to an offensive doctrine — sharpened strike tactics at the cost of ignoring defensive theory. Permanent choice; locks out Doctrine: Attrition.',
+    icon: Crosshair,
+    maxLevel: 5,
+    baseCost: { alloy: 2200, crystal: 1600 },
+    costGrowth: 1.65,
+    baseTimeSec: 900,
+    timeGrowth: 1.4,
+    requiresBuilding: { id: 'research-lab', level: 7 },
+    effect: '+5% fleet attack per level',
+    exclusiveGroup: 'doctrine-military',
+  },
+  {
+    id: 'doctrine-attrition',
+    name: 'Doctrine: Attrition',
+    description:
+      'Commit the fleet to a defensive doctrine — reinforced formations built to outlast the enemy. Permanent choice; locks out Doctrine: Assault.',
+    icon: ShieldHalf,
+    maxLevel: 5,
+    baseCost: { alloy: 2200, crystal: 1600 },
+    costGrowth: 1.65,
+    baseTimeSec: 900,
+    timeGrowth: 1.4,
+    requiresBuilding: { id: 'research-lab', level: 7 },
+    effect: '+5% fleet defense per level',
+    exclusiveGroup: 'doctrine-military',
+  },
+  {
+    id: 'doctrine-extraction',
+    name: 'Doctrine: Extraction',
+    description:
+      'Commit the economy to maximal throughput — push every refinery past rated capacity. Permanent choice; locks out Doctrine: Efficiency.',
+    icon: Drill,
+    maxLevel: 5,
+    baseCost: { energy: 1800, alloy: 1200, crystal: 1200 },
+    costGrowth: 1.6,
+    baseTimeSec: 780,
+    timeGrowth: 1.35,
+    requiresBuilding: { id: 'research-lab', level: 6 },
+    effect: '+6% Alloy & Crystal production per level',
+    exclusiveGroup: 'doctrine-economy',
+  },
+  {
+    id: 'doctrine-efficiency',
+    name: 'Doctrine: Efficiency',
+    description:
+      'Commit the economy to lean construction — every project trimmed of waste. Permanent choice; locks out Doctrine: Extraction.',
+    icon: Gauge,
+    maxLevel: 5,
+    baseCost: { energy: 1800, alloy: 1200, crystal: 1200 },
+    costGrowth: 1.6,
+    baseTimeSec: 780,
+    timeGrowth: 1.35,
+    requiresBuilding: { id: 'research-lab', level: 6 },
+    effect: '-4% building & research costs per level',
+    exclusiveGroup: 'doctrine-economy',
   },
 ]
 

@@ -46,6 +46,8 @@ export type HazardsState = {
   cooldownRemainingMs: number | null
   almanac: HazardAlmanacEntry[]
   recentEvents: HazardEvent[]
+  recoveryDebuffPct: number | null // % production penalty, while recovering
+  recoveryRemainingMs: number | null
 }
 
 const ICON_KEY: Record<string, string> = {
@@ -71,6 +73,8 @@ export async function getHazardsState(): Promise<HazardsState> {
       cooldownRemainingMs: null,
       almanac: [],
       recentEvents: [],
+      recoveryDebuffPct: null,
+      recoveryRemainingMs: null,
     }
   }
 
@@ -125,6 +129,11 @@ export async function getHazardsState(): Promise<HazardsState> {
     ? Math.max(0, DISASTER_COOLDOWN_MS - (Date.now() - colony.lastDisasterAt.getTime()))
     : null
 
+  const recoveryRemainingMs = colony.disasterDebuffUntil
+    ? Math.max(0, colony.disasterDebuffUntil.getTime() - Date.now())
+    : 0
+  const isRecovering = recoveryRemainingMs > 0
+
   return {
     bunkerLevel,
     forecastingLevel,
@@ -134,5 +143,7 @@ export async function getHazardsState(): Promise<HazardsState> {
     cooldownRemainingMs,
     almanac,
     recentEvents,
+    recoveryDebuffPct: isRecovering ? Math.round(colony.disasterDebuffPct * 100) : null,
+    recoveryRemainingMs: isRecovering ? recoveryRemainingMs : null,
   }
 }

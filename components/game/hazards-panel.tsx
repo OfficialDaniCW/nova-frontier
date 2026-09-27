@@ -50,9 +50,24 @@ const SEVERITY_CLASS: Record<string, string> = {
 
 export function HazardsPanel({ state }: { state: HazardsState }) {
   const onCooldown = (state.cooldownRemainingMs ?? 0) > 0
+  const isRecovering = (state.recoveryRemainingMs ?? 0) > 0
 
   return (
     <div className="flex flex-col gap-6">
+      {isRecovering && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-l-2 border-l-obsidian bg-obsidian/10 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-4 text-obsidian" aria-hidden="true" />
+            <span className="font-mono text-xs uppercase tracking-wide text-obsidian">
+              Recovering — production down {state.recoveryDebuffPct}%
+            </span>
+          </div>
+          <span className="font-mono text-xs tabular-nums text-text-dim">
+            <Countdown ms={state.recoveryRemainingMs!} /> remaining
+          </span>
+        </div>
+      )}
+
       {/* Resilience summary */}
       <div>
         <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wide text-text-faint">

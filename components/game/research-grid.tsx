@@ -72,6 +72,14 @@ export function ResearchGrid({ researchRows, buildingRows, resources }: Research
           const unlocked = (reqBuilding?.level ?? 0) >= def.requiresBuilding.level
           const affordable = canAfford(resources, cost)
 
+          const lockedBySibling = def.exclusiveGroup
+            ? RESEARCH_DEFS.find((sibling) => {
+                if (sibling.exclusiveGroup !== def.exclusiveGroup || sibling.id === def.id) return false
+                const siblingRow = researchRows.find((r) => r.techId === sibling.id)
+                return (siblingRow?.level ?? 0) > 0
+              })
+            : undefined
+
           const cardDef: ResearchCardDef = {
             id: def.id,
             name: def.name,
@@ -85,6 +93,8 @@ export function ResearchGrid({ researchRows, buildingRows, resources }: Research
             unlocked,
             requiredLevel: def.requiresBuilding.level,
             requiredBuildingName: getBuildingDef(def.requiresBuilding.id).name,
+            lockedByDoctrine: lockedBySibling?.name,
+            isFirstDoctrineCommit: Boolean(def.exclusiveGroup) && level === 0,
           }
 
           return (

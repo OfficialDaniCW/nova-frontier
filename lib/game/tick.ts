@@ -16,6 +16,7 @@ import {
   doctrines,
   disasterState,
   disasters,
+  frontierEvents,
 } from '@/lib/db/schema'
 import {
   getBuildingDef,
@@ -40,9 +41,15 @@ import {
   disasterMitigationPct,
   disasterStrikeChance,
   severityForMitigatedLoss,
+  disasterDebuffForStrike,
   DISASTER_SWEEP_INTERVAL_MS,
   DISASTER_COOLDOWN_MS,
 } from '@/lib/game/disasters'
+import {
+  pickFrontierEvent,
+  FRONTIER_EVENT_MIN_INTERVAL_MS,
+  FRONTIER_EVENT_ROLL_CHANCE,
+} from '@/lib/game/frontier-events'
 
 const BLOOM_SPREAD_INTERVAL_MS = 3 * 60 * 1000
 const BLOOM_SPREAD_THRESHOLD = 55
@@ -72,12 +79,32 @@ export async function logComm(
 export async function settleColony(colonyId: string) {
   const [colony] = await db.select().from(colonies).where(eq(colonies.id, colonyId)).limit(1)
   if (!colony) return null
-  const projected = projectColonyResources(colony)
+  const now = new Date()
+  const projected = projectColonyResources(colony, now.getTime())
+
+  // Recovery debuff just lapsed — clear it and nudge the player once.
+  const debuffJustExpired =
+    colony.disasterDebuffUntil && new Date(colony.disasterDebuffUntil).getTime() <= now.getTime()
+
   const [updated] = await db
     .update(colonies)
-    .set({ ...projected, lastTickAt: new Date() })
+    .set({
+      ...projected,
+      lastTickAt: now,
+      ...(debuffJustExpired ? { disasterDebuffUntil: null, disasterDebuffPct: 0 } : {}),
+    })
     .where(eq(colonies.id, colonyId))
     .returning()
+
+  if (debuffJustExpired) {
+    await logComm(
+      colony.userId,
+      'disaster',
+      'success',
+      `${colony.name} has fully recovered from disaster damage — production is back to normal. Consider rebuilding your Contingency Bunker to soften the next strike.`,
+    )
+  }
+
   return updated
 }
 
@@ -1177,8 +1204,15 @@ async function resolveDisasters(now: Date) {
       (def.damage.crystalPct ?? 0) * survive +
       (def.damage.populationPct ?? 0) * survive
     const severity = severityForMitigatedLoss(totalLossFraction)
+    const { pct: debuffPct, durationMs: debuffMs } = disasterDebuffForStrike(severity, mitigation)
+    const debuffUntil = new Date(now.getTime() + debuffMs)
 
-    const summary = `${def.name} struck ${colony.name} — lost ${energyLost} Energy, ${alloyLost} Alloy, ${crystalLost} Crystal, ${populationLost} population.`
+    await db
+      .update(colonies)
+      .set({ disasterDebuffUntil: debuffUntil, disasterDebuffPct: debuffPct })
+      .where(eq(colonies.id, colony.id))
+
+    const summary = `${def.name} struck ${colony.name} — lost ${energyLost} Energy, ${alloyLost} Alloy, ${crystalLost} Crystal, ${populationLost} population. Production down ${Math.round(debuffPct * 100)}% while recovering.`
 
     await db.insert(disasters).values({
       id: newId('disaster'),
@@ -1209,6 +1243,37 @@ async function resolveDisasters(now: Date) {
   }
 }
 
+async function resolveFrontierEvents(now: Date) {
+  const allColonies = await db.select().from(colonies)
+  const eligible = allColonies.filter(
+    (c) => !c.lastFrontierEventAt || now.getTime() - c.lastFrontierEventAt.getTime() >= FRONTIER_EVENT_MIN_INTERVAL_MS,
+  )
+
+  for (const colony of eligible) {
+    if (Math.random() > FRONTIER_EVENT_ROLL_CHANCE) continue
+
+    const [existingPending] = await db
+      .select({ id: frontierEvents.id })
+      .from(frontierEvents)
+      .where(and(eq(frontierEvents.colonyId, colony.id), eq(frontierEvents.status, 'pending')))
+      .limit(1)
+    if (existingPending) continue
+
+    const def = pickFrontierEvent()
+
+    await db.insert(frontierEvents).values({
+      id: newId('event'),
+      userId: colony.userId,
+      colonyId: colony.id,
+      eventId: def.id,
+    })
+
+    await db.update(colonies).set({ lastFrontierEventAt: now }).where(eq(colonies.id, colony.id))
+
+    await logComm(colony.userId, 'event', 'info', `${def.title}: a new transmission awaits your response.`)
+  }
+}
+
 /**
  * Single entry point for all game-state resolution. Called by the cron route
  * and can also be invoked opportunistically from server actions before a
@@ -1222,6 +1287,7 @@ export async function runTick() {
   await resolveFleetArrivals(now)
   await resolveBloomSpread(now)
   await resolveDisasters(now)
+  await resolveFrontierEvents(now)
   await resolveMarketOrders()
   return { ranAt: now.toISOString() }
 }
