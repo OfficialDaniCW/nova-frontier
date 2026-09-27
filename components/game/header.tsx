@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { headers } from 'next/headers'
-import { Flame, Gem, Hexagon, Layers, Zap } from 'lucide-react'
+import { Flame, Gem, Hexagon, Layers, Settings, Zap } from 'lucide-react'
 import { ResourcePill } from '@/components/game/resource-pill'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
@@ -106,6 +106,14 @@ export async function GameHeader() {
             </span>
             <span className="font-display text-[0.6rem] uppercase tracking-wide text-text-faint">score</span>
           </div>
+          <Link
+            href="/play/settings"
+            className="flex size-8 items-center justify-center border border-panel-border bg-slate-950/60 text-text-faint clip-chevron-sm transition-colors hover:border-concord/50 hover:text-concord"
+            title="Settings"
+          >
+            <Settings className="size-4" strokeWidth={1.5} aria-hidden="true" />
+            <span className="sr-only">Settings</span>
+          </Link>
           <SignOutButton />
         </div>
       </div>
