@@ -108,6 +108,7 @@ export const colonies = pgTable('colonies', {
   populationCap: integer('populationCap').notNull().default(500),
   lastTickAt: timestamp('lastTickAt').notNull().defaultNow(),
   lastDeepScanAt: timestamp('lastDeepScanAt'),
+  lastDisasterAt: timestamp('lastDisasterAt'), // per-colony natural-disaster cooldown
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
@@ -274,6 +275,26 @@ export const compactMembers = pgTable('compact_members', {
 export const bloomState = pgTable('bloom_state', {
   id: text('id').primaryKey(),
   lastSpreadAt: timestamp('lastSpreadAt').notNull().defaultNow(),
+})
+
+export const disasterState = pgTable('disaster_state', {
+  id: text('id').primaryKey(),
+  lastRunAt: timestamp('lastRunAt').notNull().defaultNow(),
+})
+
+export const disasters = pgTable('disasters', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull(),
+  colonyId: text('colonyId').notNull(),
+  kind: text('kind').notNull(), // 'solar-flare' | 'tectonic-quake' | 'xeno-plague' | 'meteor-strike'
+  severity: text('severity').notNull().default('moderate'), // 'minor' | 'moderate' | 'severe'
+  summary: text('summary').notNull(),
+  energyLost: doublePrecision('energyLost').notNull().default(0),
+  alloyLost: doublePrecision('alloyLost').notNull().default(0),
+  crystalLost: doublePrecision('crystalLost').notNull().default(0),
+  populationLost: integer('populationLost').notNull().default(0),
+  mitigatedPct: doublePrecision('mitigatedPct').notNull().default(0),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
 
 export const commLog = pgTable('comm_log', {

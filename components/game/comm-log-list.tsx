@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Radio, Swords, FlaskConical, Hammer, Coins, Sparkles, Info } from 'lucide-react'
+import { Radio, Swords, FlaskConical, Hammer, Coins, Sparkles, Info, AlertTriangle } from 'lucide-react'
 import { Panel } from '@/components/game/panel'
 import { cn } from '@/lib/utils'
 
@@ -11,6 +11,7 @@ const CATEGORY_ICON: Record<string, typeof Radio> = {
   construction: Hammer,
   trade: Coins,
   bloom: Sparkles,
+  disaster: AlertTriangle,
   system: Info,
 }
 

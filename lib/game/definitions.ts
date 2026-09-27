@@ -18,6 +18,8 @@ import {
   Shield,
   Landmark,
   Flame,
+  ShieldAlert,
+  CloudLightning,
 } from 'lucide-react'
 
 export type Resource = 'energy' | 'alloy' | 'crystal'
@@ -42,6 +44,8 @@ export interface BuildingDef {
   scorePerLevel?: number
   /** Devotion generated per second per level (Temple). Kept off the Resource union. */
   devotionPerLevel?: number
+  /** Marks this as the universal natural-disaster mitigation building (Contingency Bunker). */
+  disasterMitigation?: boolean
 }
 
 export const BUILDING_DEFS: BuildingDef[] = [
@@ -184,6 +188,19 @@ export const BUILDING_DEFS: BuildingDef[] = [
     baseBuildTimeSec: 600,
     buildTimeGrowth: 1.4,
     scorePerLevel: 250,
+  },
+  {
+    id: 'contingency-bunker',
+    name: 'Contingency Bunker',
+    description:
+      'Hardened shelters and reinforced infrastructure that blunt the damage from any natural disaster.',
+    icon: ShieldAlert,
+    maxLevel: 20,
+    baseCost: { energy: 1400, alloy: 1600, crystal: 400 },
+    costGrowth: 1.5,
+    baseBuildTimeSec: 360,
+    buildTimeGrowth: 1.3,
+    disasterMitigation: true,
   },
 ]
 
@@ -366,6 +383,19 @@ export const RESEARCH_DEFS: ResearchDef[] = [
     timeGrowth: 1.35,
     requiresBuilding: { id: 'research-lab', level: 5 },
     effect: '+25% anomaly & derelict survey rewards per level',
+  },
+  {
+    id: 'disaster-forecasting',
+    name: 'Disaster Forecasting',
+    description: 'Predictive modeling of seismic, solar, and biological threat patterns.',
+    icon: CloudLightning,
+    maxLevel: 10,
+    baseCost: { energy: 1000, crystal: 800 },
+    costGrowth: 1.5,
+    baseTimeSec: 420,
+    timeGrowth: 1.3,
+    requiresBuilding: { id: 'sensor-array', level: 1 },
+    effect: '-3% chance of a natural disaster striking per level',
   },
 ]
 

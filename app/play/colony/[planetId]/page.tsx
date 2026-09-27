@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation'
 import { getColonyState } from '@/app/actions/colony'
 import { getTutorialState } from '@/app/actions/tutorial'
+import { getHazardsState } from '@/app/actions/disasters'
 import { ColonyBuildingsGrid } from '@/components/game/colony-buildings-grid'
 import { TutorialChecklist } from '@/components/game/tutorial-checklist'
 import { ResourcePriorityDial } from '@/components/game/resource-priority-dial'
+import { HazardsPanel } from '@/components/game/hazards-panel'
 import type { ResourcePriority } from '@/lib/game/definitions'
 
 export default async function ColonyPage({
@@ -14,6 +16,7 @@ export default async function ColonyPage({
   const { planetId } = await params
   const { colony, projected, buildingRows } = await getColonyState()
   const { dismissed, progress } = await getTutorialState()
+  const hazards = await getHazardsState()
 
   if (colony.id !== planetId) redirect(`/play/colony/${colony.id}`)
 
@@ -44,6 +47,13 @@ export default async function ColonyPage({
       <ResourcePriorityDial current={(colony.resourcePriority as ResourcePriority) ?? 'balanced'} />
 
       <ColonyBuildingsGrid buildingRows={serializedRows} resources={projected} />
+
+      <div>
+        <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-text-faint">
+          Hazards
+        </h2>
+        <HazardsPanel state={hazards} />
+      </div>
     </div>
   )
 }

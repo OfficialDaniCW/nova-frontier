@@ -14,6 +14,8 @@ import {
   systemDiscoveries,
   governors,
   doctrines,
+  disasterState,
+  disasters,
 } from '@/lib/db/schema'
 import {
   getBuildingDef,
@@ -33,6 +35,14 @@ import {
   RAID_LOOT_FRACTION,
   RAID_SHIELD_MS,
 } from '@/lib/game/combat'
+import {
+  rollDisasterKind,
+  disasterMitigationPct,
+  disasterStrikeChance,
+  severityForMitigatedLoss,
+  DISASTER_SWEEP_INTERVAL_MS,
+  DISASTER_COOLDOWN_MS,
+} from '@/lib/game/disasters'
 
 const BLOOM_SPREAD_INTERVAL_MS = 3 * 60 * 1000
 const BLOOM_SPREAD_THRESHOLD = 55
@@ -1093,6 +1103,112 @@ async function resolveBloomSpread(now: Date) {
   }
 }
 
+const DISASTER_STATE_ID = 'global'
+
+/**
+ * Throttled sweep of every colony for natural disasters. Separate from the
+ * Bloom faction system: this is an automatic, colony-local survival threat
+ * mitigated preventatively (Contingency Bunker, Disaster Forecasting,
+ * Shield Generator / Sensor Array affinity), so there is no player action
+ * to trigger or dodge it in the moment.
+ */
+async function resolveDisasters(now: Date) {
+  const [state] = await db
+    .select()
+    .from(disasterState)
+    .where(eq(disasterState.id, DISASTER_STATE_ID))
+    .limit(1)
+  if (state && now.getTime() - state.lastRunAt.getTime() < DISASTER_SWEEP_INTERVAL_MS) return
+
+  const allColonies = await db.select().from(colonies)
+  const eligible = allColonies.filter(
+    (c) => !c.lastDisasterAt || now.getTime() - c.lastDisasterAt.getTime() >= DISASTER_COOLDOWN_MS,
+  )
+
+  for (const colony of eligible) {
+    const [forecastingRow] = await db
+      .select({ level: research.level })
+      .from(research)
+      .where(and(eq(research.userId, colony.userId), eq(research.techId, 'disaster-forecasting')))
+      .limit(1)
+    const chance = disasterStrikeChance(forecastingRow?.level ?? 0)
+    if (Math.random() > chance) continue
+
+    const def = rollDisasterKind()
+    const settled = await settleColony(colony.id)
+    if (!settled) continue
+
+    const [bunkerRow] = await db
+      .select({ level: buildings.level })
+      .from(buildings)
+      .where(and(eq(buildings.colonyId, colony.id), eq(buildings.buildingType, 'contingency-bunker')))
+      .limit(1)
+    let affinityLevel = 0
+    if (def.affinityBuildingId) {
+      const [affinityRow] = await db
+        .select({ level: buildings.level })
+        .from(buildings)
+        .where(and(eq(buildings.colonyId, colony.id), eq(buildings.buildingType, def.affinityBuildingId)))
+        .limit(1)
+      affinityLevel = affinityRow?.level ?? 0
+    }
+    const mitigation = disasterMitigationPct(bunkerRow?.level ?? 0, affinityLevel)
+    const survive = 1 - mitigation
+
+    const energyLost = Math.floor(settled.energy * (def.damage.energyPct ?? 0) * survive)
+    const alloyLost = Math.floor(settled.alloy * (def.damage.alloyPct ?? 0) * survive)
+    const crystalLost = Math.floor(settled.crystal * (def.damage.crystalPct ?? 0) * survive)
+    const populationLost = Math.floor(settled.population * (def.damage.populationPct ?? 0) * survive)
+
+    await db
+      .update(colonies)
+      .set({
+        energy: Math.max(0, settled.energy - energyLost),
+        alloy: Math.max(0, settled.alloy - alloyLost),
+        crystal: Math.max(0, settled.crystal - crystalLost),
+        population: Math.max(0, settled.population - populationLost),
+        lastDisasterAt: now,
+      })
+      .where(eq(colonies.id, colony.id))
+
+    const totalLossFraction =
+      (def.damage.energyPct ?? 0) * survive +
+      (def.damage.alloyPct ?? 0) * survive +
+      (def.damage.crystalPct ?? 0) * survive +
+      (def.damage.populationPct ?? 0) * survive
+    const severity = severityForMitigatedLoss(totalLossFraction)
+
+    const summary = `${def.name} struck ${colony.name} — lost ${energyLost} Energy, ${alloyLost} Alloy, ${crystalLost} Crystal, ${populationLost} population.`
+
+    await db.insert(disasters).values({
+      id: newId('disaster'),
+      userId: colony.userId,
+      colonyId: colony.id,
+      kind: def.id,
+      severity,
+      summary,
+      energyLost,
+      alloyLost,
+      crystalLost,
+      populationLost,
+      mitigatedPct: mitigation,
+    })
+
+    await logComm(
+      colony.userId,
+      'disaster',
+      severity === 'severe' ? 'danger' : severity === 'moderate' ? 'warning' : 'info',
+      summary + (mitigation > 0 ? ` (${Math.round(mitigation * 100)}% mitigated)` : ''),
+    )
+  }
+
+  if (state) {
+    await db.update(disasterState).set({ lastRunAt: now }).where(eq(disasterState.id, DISASTER_STATE_ID))
+  } else {
+    await db.insert(disasterState).values({ id: DISASTER_STATE_ID, lastRunAt: now })
+  }
+}
+
 /**
  * Single entry point for all game-state resolution. Called by the cron route
  * and can also be invoked opportunistically from server actions before a
@@ -1105,6 +1221,7 @@ export async function runTick() {
   await resolveShipQueues(now)
   await resolveFleetArrivals(now)
   await resolveBloomSpread(now)
+  await resolveDisasters(now)
   await resolveMarketOrders()
   return { ranAt: now.toISOString() }
 }
